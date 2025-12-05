@@ -9,12 +9,23 @@ import { getFCMRebalanceEvents } from './fcm'
  */
 
 /**
+ * Format token amount for display in events
+ */
+function formatTokenForEvent(amount: number): string {
+  if (amount >= 1) return amount.toFixed(4)
+  if (amount >= 0.0001) return amount.toFixed(6)
+  return amount.toExponential(2)
+}
+
+/**
  * Generate initial position creation events (both positions)
  */
 export function generateCreationEvents(
   initialCollateral: number,
-  initialBorrow: number
+  initialBorrow: number,
+  basePrice: number
 ): SimulationEvent[] {
+  const collateralValueUSD = initialCollateral * basePrice
   return [
     {
       id: generateId(),
@@ -22,8 +33,8 @@ export function generateCreationEvents(
       position: 'both',
       type: 'create',
       action: 'Position Created',
-      code: `pool.createPosition(funds: ←${initialCollateral.toFixed(0)} FLOW, targetHealth: ${PROTOCOL_CONFIG.targetHealth})`,
-      details: `Deposited ${initialCollateral.toFixed(0)} FLOW as collateral`,
+      code: `pool.createPosition(funds: ←${formatTokenForEvent(initialCollateral)} tokens, targetHealth: ${PROTOCOL_CONFIG.targetHealth})`,
+      details: `Deposited ${formatTokenForEvent(initialCollateral)} tokens (~$${collateralValueUSD.toFixed(0)}) as collateral`,
     },
     {
       id: generateId(),
@@ -31,8 +42,8 @@ export function generateCreationEvents(
       position: 'both',
       type: 'borrow',
       action: 'Auto-borrowed to target health',
-      code: `autoBorrow() → ${initialBorrow.toFixed(2)} MOET issued to DrawDownSink`,
-      details: `Effective collateral: $${(initialCollateral * PROTOCOL_CONFIG.collateralFactor).toFixed(0)} / ${PROTOCOL_CONFIG.targetHealth} = $${initialBorrow.toFixed(2)} debt`,
+      code: `autoBorrow() → ${initialBorrow.toFixed(2)} stablecoins issued to DrawDownSink`,
+      details: `Effective collateral: $${(collateralValueUSD * PROTOCOL_CONFIG.collateralFactor).toFixed(0)} / ${PROTOCOL_CONFIG.targetHealth} = $${initialBorrow.toFixed(0)} debt`,
     },
   ]
 }
@@ -153,7 +164,7 @@ export function generateAllEvents(
 
   // Initial events
   const initialBorrow = (initialCollateral * basePrice * PROTOCOL_CONFIG.collateralFactor) / PROTOCOL_CONFIG.targetHealth
-  events.push(...generateCreationEvents(initialCollateral, initialBorrow))
+  events.push(...generateCreationEvents(initialCollateral, initialBorrow, basePrice))
 
   // Get FCM rebalance events
   const rebalanceEvents = getFCMRebalanceEvents(

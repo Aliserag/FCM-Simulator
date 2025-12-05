@@ -14,9 +14,10 @@ import { getTokenPrice, getToken, getTokenCollateralFactor, TOKENS } from '@/dat
 
 /**
  * Initialize a new simulation
+ * @param initialDepositUSD - Initial deposit in USD (e.g., $1000)
  */
 export function initializeSimulation(
-  initialDeposit: number = PROTOCOL_CONFIG.initialDeposit,
+  initialDepositUSD: number = PROTOCOL_CONFIG.initialDeposit,
   marketConditions: MarketConditions = {
     priceChange: -30,
     volatility: 'medium',
@@ -26,25 +27,27 @@ export function initializeSimulation(
     debtToken: 'usdc',
   }
 ): SimulationState {
-  // Get base price from token or use default
-  let basePrice = PROTOCOL_CONFIG.baseFlowPrice
+  // Get day 0 price from token or use default
+  let day0Price = PROTOCOL_CONFIG.baseFlowPrice
   if (marketConditions.dataMode === 'historic') {
-    const token = getToken(marketConditions.collateralToken)
-    if (token) {
-      basePrice = token.basePrice
-    }
+    // Day 0 price is the token price at the start of the simulation
+    day0Price = getTokenPrice(marketConditions.collateralToken, 0)
   }
+
+  // Calculate token amount from USD value at day 0 price
+  // e.g., $1000 / $3900 per ETH = 0.256 ETH
+  const initialCollateralTokens = initialDepositUSD / day0Price
 
   return {
     currentDay: 0,
     maxDay: SIMULATION_DEFAULTS.maxDay,
-    traditional: initializeTraditionalPosition(initialDeposit, basePrice),
-    fcm: initializeFCMPosition(initialDeposit, basePrice),
+    traditional: initializeTraditionalPosition(initialCollateralTokens, day0Price),
+    fcm: initializeFCMPosition(initialCollateralTokens, day0Price),
     events: [],
     marketConditions,
-    initialDeposit,
-    flowPrice: basePrice,
-    baseFlowPrice: basePrice,
+    initialDeposit: initialDepositUSD,
+    flowPrice: day0Price,
+    baseFlowPrice: day0Price,
     isPlaying: false,
     playSpeed: SIMULATION_DEFAULTS.playSpeed,
   }
@@ -78,9 +81,12 @@ export function simulateToDay(
   // Calculate effective borrow APY with any rate changes
   const effectiveBorrowAPY = PROTOCOL_CONFIG.borrowAPY + (state.marketConditions.interestRateChange / 100)
 
+  // Calculate initial collateral in tokens from USD value at day 0 price
+  const initialCollateralTokens = state.initialDeposit / state.baseFlowPrice
+
   // Simulate traditional position
   const traditional = simulateTraditionalPosition({
-    initialCollateral: state.initialDeposit,
+    initialCollateral: initialCollateralTokens,
     currentPrice,
     basePrice: state.baseFlowPrice,
     day: clampedDay,
@@ -89,7 +95,7 @@ export function simulateToDay(
 
   // Simulate FCM position
   const fcm = simulateFCMPosition({
-    initialCollateral: state.initialDeposit,
+    initialCollateral: initialCollateralTokens,
     currentPrice,
     basePrice: state.baseFlowPrice,
     day: clampedDay,
@@ -99,7 +105,7 @@ export function simulateToDay(
   // Generate events
   const allEvents = generateAllEvents(
     clampedDay,
-    state.initialDeposit,
+    initialCollateralTokens,
     state.baseFlowPrice,
     state.marketConditions.priceChange,
     traditional,
