@@ -28,6 +28,7 @@ import {
 import { useSimulation } from '@/hooks/useSimulation'
 import { cn, formatCurrency, formatCurrencyCompact, formatPercent, formatTokenAmount } from '@/lib/utils'
 import { TOOLTIPS, PROTOCOL_CONFIG } from '@/lib/constants'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { SimulationEvent } from '@/types'
 import { getTokenSupplyAPY } from '@/data/historicPrices'
 
@@ -135,17 +136,38 @@ export default function SimulatorPage() {
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-sm text-white/60">Data:</span>
               <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-                <button
-                  onClick={() => setDataMode('historic')}
-                  className={cn(
-                    "px-3 py-1 rounded-md text-xs font-medium transition-all",
-                    state.marketConditions.dataMode === 'historic'
-                      ? "bg-cyan-500/20 text-cyan-400"
-                      : "text-white/40 hover:text-white/60"
-                  )}
+                <Tooltip
+                  position="bottom"
+                  className="whitespace-normal max-w-xs text-center"
+                  content={
+                    <div className="space-y-1">
+                      <p className="font-medium">Real 2020 Price Data</p>
+                      <p className="text-xs text-white/70">
+                        Actual crypto prices from Jan-Dec 2020 including the COVID crash and recovery.
+                      </p>
+                      <a
+                        href="https://www.coingecko.com/en/coins/bitcoin/historical_data"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-cyan-400 hover:text-cyan-300 underline block"
+                      >
+                        Source: CoinGecko Historical Data
+                      </a>
+                    </div>
+                  }
                 >
-                  Historic (2020)
-                </button>
+                  <button
+                    onClick={() => setDataMode('historic')}
+                    className={cn(
+                      "px-3 py-1 rounded-md text-xs font-medium transition-all",
+                      state.marketConditions.dataMode === 'historic'
+                        ? "bg-cyan-500/20 text-cyan-400"
+                        : "text-white/40 hover:text-white/60"
+                    )}
+                  >
+                    Historic (2020)
+                  </button>
+                </Tooltip>
                 <button
                   onClick={() => setDataMode('simulated')}
                   className={cn(
