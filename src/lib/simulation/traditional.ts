@@ -75,6 +75,7 @@ export function initializeTraditionalPosition(
     status: 'healthy',
     totalReturns: 0,
     accruedInterest: 0,
+    earnedYield: 0, // Traditional doesn't auto-apply yield to debt
     rebalanceCount: 0, // Traditional never rebalances
   }
 }
@@ -171,6 +172,7 @@ export function simulateTraditionalPosition(
     status,
     totalReturns,
     accruedInterest: totalInterestPaid,
+    earnedYield: 0, // Traditional doesn't auto-apply yield to debt
     rebalanceCount: 0,
   }
 }

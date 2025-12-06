@@ -40,6 +40,8 @@ interface FCMState {
   debtAmount: number
   rebalanceCount: number
   totalInterestPaid: number
+  totalYieldEarned: number
+  accumulatedYield: number  // Yield not yet used for debt repayment
 }
 
 // Store FCM state per day for tracking rebalances
@@ -72,6 +74,7 @@ export function initializeFCMPosition(
     status: 'healthy',
     totalReturns: 0,
     accruedInterest: 0,
+    earnedYield: 0,
     rebalanceCount: 0,
   }
 }
@@ -133,6 +136,8 @@ export function simulateFCMPosition(
     debtAmount: initialBorrow,
     rebalanceCount: 0,
     totalInterestPaid: 0,
+    totalYieldEarned: 0,
+    accumulatedYield: 0,
   }
 
   // Simulate day by day - FCM monitors and rebalances continuously
@@ -140,19 +145,33 @@ export function simulateFCMPosition(
     // Get the ACTUAL price at this day (historic or simulated)
     const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
-    // 1. Accrue daily interest on debt (this is a lending fee)
+    // 1. Earn daily supply yield on collateral value (deposited collateral earns interest)
+    const collateralValueUSD = state.collateralAmount * dayPrice
+    const dailyYield = (collateralValueUSD * PROTOCOL_CONFIG.supplyAPY) / 365
+    state.accumulatedYield += dailyYield
+    state.totalYieldEarned += dailyYield
+
+    // 2. Accrue daily interest on debt (this is a lending fee)
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
     state.debtAmount += dailyInterest
     state.totalInterestPaid += dailyInterest
 
-    // 2. Calculate current health factor
+    // 3. FCM uses accumulated yield to continuously pay down debt
+    // This is a key FCM feature: earned interest helps reduce debt
+    if (state.accumulatedYield > 0 && state.debtAmount > 0) {
+      const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
+      state.debtAmount -= yieldToApply
+      state.accumulatedYield -= yieldToApply
+    }
+
+    // 4. Calculate current health factor
     const currentHealth = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
       state.debtAmount
     )
 
-    // 3. Check if rebalancing is needed (FCM's automatic protection)
+    // 5. Check if rebalancing is needed (FCM's automatic protection)
     if (currentHealth < PROTOCOL_CONFIG.minHealth && currentHealth > 0) {
       // Health too low - FCM automatically repays debt to restore target health
       // This is the key FCM feature from the documentation:
@@ -167,15 +186,25 @@ export function simulateFCMPosition(
       )
 
       if (repayAmount > 0 && repayAmount <= state.debtAmount) {
-        // FCM uses TopUpSource to pull collateral and repay debt
-        // Collateral is sold at current price to get stablecoins to repay
-        const collateralToSell = repayAmount / dayPrice
+        // First, use any remaining accumulated yield
+        let remainingRepay = repayAmount
+        if (state.accumulatedYield > 0) {
+          const yieldUsed = Math.min(state.accumulatedYield, remainingRepay)
+          state.debtAmount -= yieldUsed
+          state.accumulatedYield -= yieldUsed
+          remainingRepay -= yieldUsed
+        }
 
-        // Only rebalance if we have enough collateral
-        if (collateralToSell <= state.collateralAmount) {
-          state.collateralAmount -= collateralToSell
-          state.debtAmount -= repayAmount
-          state.rebalanceCount++
+        // Then sell collateral if still needed
+        if (remainingRepay > 0 && remainingRepay <= state.debtAmount) {
+          const collateralToSell = remainingRepay / dayPrice
+
+          // Only rebalance if we have enough collateral
+          if (collateralToSell <= state.collateralAmount) {
+            state.collateralAmount -= collateralToSell
+            state.debtAmount -= remainingRepay
+            state.rebalanceCount++
+          }
         }
       }
     }
@@ -223,6 +252,7 @@ export function simulateFCMPosition(
     status,
     totalReturns,
     accruedInterest: state.totalInterestPaid,
+    earnedYield: state.totalYieldEarned,
     rebalanceCount: state.rebalanceCount,
   }
 }

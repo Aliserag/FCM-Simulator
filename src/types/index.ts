@@ -9,6 +9,7 @@ export interface PositionState {
   status: 'healthy' | 'warning' | 'liquidated'
   totalReturns: number          // cumulative gains/losses in USD
   accruedInterest: number       // interest paid on debt
+  earnedYield: number           // interest earned on collateral (FCM)
   rebalanceCount: number        // number of rebalances (FCM only)
 }
 
