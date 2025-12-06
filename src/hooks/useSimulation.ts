@@ -11,7 +11,7 @@ import {
   getDisplayMetrics,
 } from '@/lib/simulation/engine'
 import { SCENARIOS, PROTOCOL_CONFIG, SIMULATION_DEFAULTS } from '@/lib/constants'
-import { TOKENS, DEBT_TOKENS, getToken } from '@/data/historicPrices'
+import { TOKENS, DEBT_TOKENS, getToken, getHistoricTokens, getSimulatedTokens } from '@/data/historicPrices'
 
 interface UseSimulationReturn {
   // State
@@ -31,7 +31,7 @@ interface UseSimulationReturn {
   setVolatility: (volatility: 'low' | 'medium' | 'high') => void
   setInterestRateChange: (percent: number) => void
   setDataMode: (mode: 'simulated' | 'historic') => void
-  setCollateralToken: (tokenId: string) => void
+  setCollateralToken: (tokenId: string, livePrice?: number) => void
   setDebtToken: (tokenId: string) => void
   applyScenario: (scenario: Scenario) => void
 
@@ -50,6 +50,8 @@ interface UseSimulationReturn {
   // Token data
   tokens: typeof TOKENS
   debtTokens: typeof DEBT_TOKENS
+  getHistoricTokens: typeof getHistoricTokens
+  getSimulatedTokens: typeof getSimulatedTokens
 }
 
 export function useSimulation(
@@ -123,12 +125,17 @@ export function useSimulation(
     })
   }, [pause])
 
-  const setCollateralToken = useCallback((tokenId: string) => {
+  const setCollateralToken = useCallback((tokenId: string, livePrice?: number) => {
     pause()
     setState(prev => {
+      // Use live price if provided, otherwise use token's basePrice
+      const token = getToken(tokenId)
+      const basePrice = livePrice ?? token?.basePrice ?? 100
+
       const newState = initializeSimulation(prev.initialDeposit, {
         ...prev.marketConditions,
         collateralToken: tokenId,
+        basePrice: basePrice,
       })
       return simulateToDay(newState, 0)
     })
@@ -275,5 +282,7 @@ export function useSimulation(
     scenarios: SCENARIOS,
     tokens: TOKENS,
     debtTokens: DEBT_TOKENS,
+    getHistoricTokens,
+    getSimulatedTokens,
   }
 }

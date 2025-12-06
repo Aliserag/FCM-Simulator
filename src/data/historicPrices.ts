@@ -102,6 +102,7 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'stable'): number[] {
 // Supply APY based on 2020 DeFi lending rates (Compound/Aave)
 // Note: Only BTC and ETH included as they had established DeFi lending markets in 2020
 export const TOKENS: TokenInfo[] = [
+  // Historic mode tokens (have priceMultipliers data from 2020)
   {
     id: 'btc',
     symbol: 'BTC',
@@ -121,6 +122,47 @@ export const TOKENS: TokenInfo[] = [
     collateralFactor: 0.80,
     supplyAPY: 0.03,       // ~3% average - ETH on Compound/Aave (varied 0.5-10% through year)
     priceMultipliers: generatePriceData('eth'),
+  },
+  // Simulated mode only tokens (no historic data)
+  {
+    id: 'sol',
+    symbol: 'SOL',
+    name: 'Solana',
+    color: '#9945FF',
+    basePrice: 230,          // Fallback price (updated by CoinGecko)
+    collateralFactor: 0.70,  // Higher volatility = lower LTV
+    supplyAPY: 0.06,         // ~6% staking rewards
+    priceMultipliers: [],    // Empty = simulated mode only
+  },
+  {
+    id: 'avax',
+    symbol: 'AVAX',
+    name: 'Avalanche',
+    color: '#E84142',
+    basePrice: 50,
+    collateralFactor: 0.70,
+    supplyAPY: 0.05,         // ~5% DeFi yield
+    priceMultipliers: [],
+  },
+  {
+    id: 'matic',
+    symbol: 'MATIC',
+    name: 'Polygon',
+    color: '#8247E5',
+    basePrice: 0.50,
+    collateralFactor: 0.65,  // Higher volatility
+    supplyAPY: 0.04,         // ~4% DeFi yield
+    priceMultipliers: [],
+  },
+  {
+    id: 'link',
+    symbol: 'LINK',
+    name: 'Chainlink',
+    color: '#375BD2',
+    basePrice: 15,
+    collateralFactor: 0.70,
+    supplyAPY: 0.03,         // ~3% staking
+    priceMultipliers: [],
   },
 ]
 
@@ -171,4 +213,18 @@ export function calculateTokenAmount(tokenId: string, usdValue: number): number 
   const token = TOKENS.find(t => t.id === tokenId)
   if (!token) return 0
   return usdValue / token.basePrice
+}
+
+/**
+ * Get tokens available for Historic mode (only those with priceMultipliers data)
+ */
+export function getHistoricTokens(): TokenInfo[] {
+  return TOKENS.filter(t => t.priceMultipliers.length > 0)
+}
+
+/**
+ * Get tokens available for Simulated mode (all tokens)
+ */
+export function getSimulatedTokens(): TokenInfo[] {
+  return TOKENS
 }

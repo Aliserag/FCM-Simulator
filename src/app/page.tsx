@@ -32,9 +32,10 @@ import { cn, formatCurrency, formatCurrencyCompact, formatPercent, formatTokenAm
 import { TOOLTIPS, PROTOCOL_CONFIG } from '@/lib/constants'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SimulationEvent } from '@/types'
-import { getTokenSupplyAPY } from '@/data/historicPrices'
+import { getTokenSupplyAPY, getToken } from '@/data/historicPrices'
 import { ComparisonSummary } from '@/components/ComparisonSummary'
 import { RebalanceToast } from '@/components/RebalanceToast'
+import { useCoinGeckoPrices } from '@/hooks/useCoinGeckoPrices'
 
 export default function SimulatorPage() {
   const {
@@ -62,7 +63,12 @@ export default function SimulatorPage() {
     scenarios,
     tokens,
     debtTokens,
+    getHistoricTokens,
+    getSimulatedTokens,
   } = useSimulation()
+
+  // Live prices from CoinGecko (for simulated mode)
+  const { prices: livePrices, isLoading: pricesLoading, fetchPrices } = useCoinGeckoPrices()
 
   // Track previous status for liquidation detection
   const prevStatusRef = useRef(state.traditional.status)
@@ -161,27 +167,71 @@ export default function SimulatorPage() {
         {/* Token Selection */}
         <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1">
               <span className="text-sm text-white/60">Collateral:</span>
-              <div className="flex gap-1">
-                {tokens.map((token) => (
+              {state.marketConditions.dataMode === 'simulated' ? (
+                // Simulated mode: Show all 6 tokens with live prices
+                <div className="flex flex-wrap gap-1">
+                  {getSimulatedTokens().map((token) => {
+                    const isSelected = state.marketConditions.collateralToken === token.id
+                    const price = livePrices[token.id]
+                    return (
+                      <button
+                        key={token.id}
+                        onClick={() => {
+                          setCollateralToken(token.id, price)
+                          setBasePrice(price)
+                        }}
+                        className={cn(
+                          "flex flex-col items-center px-2 py-1.5 rounded-lg text-sm font-medium transition-all border min-w-[60px]",
+                          isSelected
+                            ? "border-white/30 bg-white/10"
+                            : "border-transparent hover:bg-white/5"
+                        )}
+                        style={{
+                          borderColor: isSelected ? token.color : undefined
+                        }}
+                      >
+                        <span style={{ color: isSelected ? token.color : 'rgba(255,255,255,0.7)' }}>
+                          {token.symbol}
+                        </span>
+                        <span className="text-[10px] text-white/40 font-mono">
+                          {pricesLoading ? '...' : `$${price?.toLocaleString(undefined, { maximumFractionDigits: price < 1 ? 2 : 0 }) ?? '?'}`}
+                        </span>
+                      </button>
+                    )
+                  })}
                   <button
-                    key={token.id}
-                    onClick={() => setCollateralToken(token.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
-                      state.marketConditions.collateralToken === token.id
-                        ? "border-white/30 bg-white/10 text-white"
-                        : "border-transparent text-white/50 hover:text-white hover:bg-white/5"
-                    )}
-                    style={{
-                      borderColor: state.marketConditions.collateralToken === token.id ? token.color : undefined
-                    }}
+                    onClick={fetchPrices}
+                    disabled={pricesLoading}
+                    className="ml-1 px-2 py-1 text-[10px] text-cyan-400 hover:text-cyan-300 disabled:opacity-50"
+                    title="Refresh prices from CoinGecko"
                   >
-                    {token.symbol}
+                    {pricesLoading ? '...' : '↻'}
                   </button>
-                ))}
-              </div>
+                </div>
+              ) : (
+                // Historic mode: Only BTC and ETH
+                <div className="flex gap-1">
+                  {getHistoricTokens().map((token) => (
+                    <button
+                      key={token.id}
+                      onClick={() => setCollateralToken(token.id)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                        state.marketConditions.collateralToken === token.id
+                          ? "border-white/30 bg-white/10 text-white"
+                          : "border-transparent text-white/50 hover:text-white hover:bg-white/5"
+                      )}
+                      style={{
+                        borderColor: state.marketConditions.collateralToken === token.id ? token.color : undefined
+                      }}
+                    >
+                      {token.symbol}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-sm text-white/60">Data:</span>
@@ -521,21 +571,37 @@ export default function SimulatorPage() {
 
               {showAdvancedSettings && (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                {/* Base Token Price */}
+                {/* Token Starting Price - Editable Input */}
                 <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white/60">Base Token Price</span>
-                    <span className="font-mono">${state.marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice}</span>
+                  <label className="text-sm text-white/60 mb-2 block">
+                    {getToken(state.marketConditions.collateralToken)?.symbol ?? 'Token'} Starting Price
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">$</span>
+                      <input
+                        type="number"
+                        value={state.marketConditions.basePrice ?? livePrices[state.marketConditions.collateralToken] ?? 100}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value)
+                          if (!isNaN(val) && val > 0) setBasePrice(val)
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-3 py-2 font-mono text-sm focus:border-white/30 focus:outline-none"
+                        min={0.01}
+                        step="any"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setBasePrice(livePrices[state.marketConditions.collateralToken])}
+                      className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors"
+                      title="Reset to live CoinGecko price"
+                    >
+                      Reset
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={100}
-                    step={1}
-                    value={state.marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice}
-                    onChange={(e) => setBasePrice(Number(e.target.value))}
-                    className="w-full"
-                  />
+                  <p className="text-[10px] text-white/40 mt-1">
+                    Live: ${livePrices[state.marketConditions.collateralToken]?.toLocaleString() ?? '...'}
+                  </p>
                 </div>
 
                 {/* Borrow APY */}
