@@ -138,20 +138,23 @@ export default function SimulatorPage() {
               <div className="flex gap-1 bg-white/5 rounded-lg p-1">
                 <Tooltip
                   position="bottom"
-                  className="whitespace-normal max-w-xs text-center"
+                  className="!whitespace-normal w-64 text-left"
                   content={
-                    <div className="space-y-1">
-                      <p className="font-medium">Real 2020 Price Data</p>
-                      <p className="text-xs text-white/70">
-                        Actual crypto prices from Jan-Dec 2020 including the COVID crash and recovery.
+                    <div className="space-y-2">
+                      <p className="font-semibold text-white">Real 2020 Price Data</p>
+                      <p className="text-xs text-white/80 leading-relaxed">
+                        Actual crypto prices from January to December 2020, including the COVID crash in March and the bull run recovery.
                       </p>
                       <a
                         href="https://www.coingecko.com/en/coins/bitcoin/historical_data"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-cyan-400 hover:text-cyan-300 underline block"
+                        className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 underline mt-1"
                       >
-                        Source: CoinGecko Historical Data
+                        Source: CoinGecko
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </a>
                     </div>
                   }
