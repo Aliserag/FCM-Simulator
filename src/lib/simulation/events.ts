@@ -1,7 +1,29 @@
-import { SimulationEvent, PositionState } from '@/types'
+import { SimulationEvent, PositionState, MarketConditions } from '@/types'
 import { PROTOCOL_CONFIG } from '@/lib/constants'
 import { generateId } from '@/lib/utils'
 import { getFCMRebalanceEvents } from './fcm'
+import { getTokenPrice } from '@/data/historicPrices'
+import { calculatePriceAtDay, calculateHealthFactor, calculateInitialBorrow } from './calculations'
+
+/**
+ * Helper function to get price at a specific day
+ */
+function getPriceAtDay(
+  day: number,
+  basePrice: number,
+  marketConditions?: MarketConditions
+): number {
+  if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
+    return getTokenPrice(marketConditions.collateralToken, day)
+  }
+  return calculatePriceAtDay(
+    basePrice,
+    marketConditions?.priceChange ?? -30,
+    day,
+    365,
+    marketConditions?.volatility ?? 'medium'
+  )
+}
 
 /**
  * Event generation for the transaction log
@@ -158,21 +180,23 @@ export function generateAllEvents(
   basePrice: number,
   targetPriceChangePercent: number,
   traditionalPosition: PositionState,
-  fcmPosition: PositionState
+  fcmPosition: PositionState,
+  marketConditions?: MarketConditions
 ): SimulationEvent[] {
   const events: SimulationEvent[] = []
 
   // Initial events
-  const initialBorrow = (initialCollateral * basePrice * PROTOCOL_CONFIG.collateralFactor) / PROTOCOL_CONFIG.targetHealth
+  const initialBorrow = calculateInitialBorrow(initialCollateral, basePrice, PROTOCOL_CONFIG.targetHealth)
   events.push(...generateCreationEvents(initialCollateral, initialBorrow, basePrice))
 
-  // Get FCM rebalance events
+  // Get FCM rebalance events with historic prices
   const rebalanceEvents = getFCMRebalanceEvents(
     initialCollateral,
     basePrice,
     targetPriceChangePercent,
     day,
-    PROTOCOL_CONFIG.borrowAPY
+    PROTOCOL_CONFIG.borrowAPY,
+    marketConditions
   )
 
   // Add rebalance events
@@ -182,15 +206,16 @@ export function generateAllEvents(
     events.push(generateRebalanceEvent(re.day, re.healthBefore, re.healthAfter, re.repaidAmount))
   }
 
-  // Add traditional warning events at key health thresholds
+  // Add traditional warning events at key health thresholds using actual prices
   const warningDays = [30, 60, 90, 120, 150, 180]
+  let debtAtDay = initialBorrow
   for (const wd of warningDays) {
     if (wd <= day) {
-      // Calculate health at this day (approximation)
-      const progress = wd / 365
-      const priceAtDay = basePrice * (1 + (targetPriceChangePercent / 100) * progress)
-      const debtAtDay = initialBorrow * Math.pow(1 + PROTOCOL_CONFIG.borrowAPY / 365, wd)
-      const healthAtDay = (initialCollateral * priceAtDay * PROTOCOL_CONFIG.collateralFactor) / debtAtDay
+      // Get ACTUAL price at this day (historic or simulated)
+      const priceAtDay = getPriceAtDay(wd, basePrice, marketConditions)
+      // Calculate debt with compound interest
+      debtAtDay = initialBorrow * Math.pow(1 + PROTOCOL_CONFIG.borrowAPY / 365, wd)
+      const healthAtDay = calculateHealthFactor(initialCollateral, priceAtDay, debtAtDay)
 
       if (healthAtDay < PROTOCOL_CONFIG.targetHealth && healthAtDay > PROTOCOL_CONFIG.liquidationThreshold) {
         events.push(generateTraditionalWarningEvent(wd, healthAtDay))
@@ -200,13 +225,15 @@ export function generateAllEvents(
 
   // Add liquidation event if traditional position was liquidated
   if (traditionalPosition.status === 'liquidated') {
-    // Find approximate liquidation day
+    // Find liquidation day using actual prices
     let liquidationDay = day
+    let debtTracker = initialBorrow
     for (let d = 1; d <= day; d++) {
-      const progress = d / 365
-      const priceAtDay = basePrice * (1 + (targetPriceChangePercent / 100) * progress)
-      const debtAtDay = initialBorrow * Math.pow(1 + PROTOCOL_CONFIG.borrowAPY / 365, d)
-      const healthAtDay = (initialCollateral * priceAtDay * PROTOCOL_CONFIG.collateralFactor) / debtAtDay
+      // Get ACTUAL price at this day
+      const priceAtDay = getPriceAtDay(d, basePrice, marketConditions)
+      // Accrue daily interest
+      debtTracker += (debtTracker * PROTOCOL_CONFIG.borrowAPY) / 365
+      const healthAtDay = calculateHealthFactor(initialCollateral, priceAtDay, debtTracker)
 
       if (healthAtDay < PROTOCOL_CONFIG.liquidationThreshold) {
         liquidationDay = d
@@ -217,7 +244,7 @@ export function generateAllEvents(
     events.push(generateLiquidationEvent(
       liquidationDay,
       0.98, // Approximate health just before liquidation
-      initialCollateral * basePrice // Approximate collateral lost
+      initialCollateral * getPriceAtDay(liquidationDay, basePrice, marketConditions)
     ))
   }
 

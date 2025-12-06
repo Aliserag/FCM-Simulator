@@ -1,4 +1,4 @@
-import { PositionState } from '@/types'
+import { PositionState, MarketConditions } from '@/types'
 import { PROTOCOL_CONFIG } from '@/lib/constants'
 import {
   calculateHealthFactor,
@@ -8,7 +8,9 @@ import {
   calculateLiquidationLoss,
   calculateNetReturns,
   isLiquidatable,
+  calculatePriceAtDay,
 } from './calculations'
+import { getTokenPrice } from '@/data/historicPrices'
 
 /**
  * Traditional Lending Simulation
@@ -20,10 +22,33 @@ import {
 
 export interface TraditionalSimulationParams {
   initialCollateral: number      // Initial FLOW deposited
-  currentPrice: number           // Current FLOW price
-  basePrice: number              // Starting FLOW price
+  currentPrice: number           // Current FLOW price (for final day display)
+  basePrice: number              // Starting FLOW price (Day 0)
   day: number                    // Current simulation day
   borrowAPY: number              // Annual borrow interest rate
+  marketConditions?: MarketConditions  // For historic price lookup
+}
+
+/**
+ * Helper function to get price at a specific day
+ * Uses historic data if available, otherwise calculates simulated price
+ */
+function getPriceAtDay(
+  day: number,
+  basePrice: number,
+  marketConditions?: MarketConditions
+): number {
+  if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
+    return getTokenPrice(marketConditions.collateralToken, day)
+  }
+  // Fallback to simulated price
+  return calculatePriceAtDay(
+    basePrice,
+    marketConditions?.priceChange ?? -30,
+    day,
+    365,
+    marketConditions?.volatility ?? 'medium'
+  )
 }
 
 /**
@@ -56,6 +81,11 @@ export function initializeTraditionalPosition(
 
 /**
  * Simulate traditional position at a given day
+ *
+ * Traditional lending has NO automatic protection:
+ * - When health drops below liquidation threshold (1.0), position is liquidated
+ * - No rebalancing, no automatic debt repayment
+ * - User loses collateral to liquidators
  */
 export function simulateTraditionalPosition(
   params: TraditionalSimulationParams
@@ -66,75 +96,81 @@ export function simulateTraditionalPosition(
     basePrice,
     day,
     borrowAPY,
+    marketConditions,
   } = params
 
-  // Get initial state values
+  // Get initial borrow amount at target health (1.3)
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
     PROTOCOL_CONFIG.targetHealth
   )
 
-  // Calculate accrued interest
-  const accruedInterest = calculateCompoundInterest(initialBorrow, borrowAPY, day)
+  // Track state through simulation
+  let collateralAmount = initialCollateral
+  let debtAmount = initialBorrow
+  let totalInterestPaid = 0
+  let liquidated = false
+  let liquidationDay = 0
 
-  // Current debt = initial borrow + accrued interest
-  const currentDebt = initialBorrow + accruedInterest
+  // Simulate day by day to check for liquidation with actual prices
+  for (let d = 1; d <= day; d++) {
+    // Get the ACTUAL price at this day (historic or simulated)
+    const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
-  // Collateral value at current price
-  const collateralValueUSD = calculateCollateralValueUSD(initialCollateral, currentPrice)
+    // 1. Accrue daily interest on debt
+    const dailyInterest = (debtAmount * borrowAPY) / 365
+    debtAmount += dailyInterest
+    totalInterestPaid += dailyInterest
 
-  // Calculate health factor
-  const healthFactor = calculateHealthFactor(
-    initialCollateral,
-    currentPrice,
-    currentDebt
-  )
+    // 2. Calculate current health factor
+    const currentHealth = calculateHealthFactor(
+      collateralAmount,
+      dayPrice,
+      debtAmount
+    )
 
-  // Check for liquidation
-  const liquidated = isLiquidatable(healthFactor)
+    // 3. Check for liquidation (traditional has no protection)
+    if (currentHealth < PROTOCOL_CONFIG.liquidationThreshold) {
+      liquidated = true
+      liquidationDay = d
+      break
+    }
+  }
+
+  // Final calculations at target day
+  const finalPrice = liquidated ? getPriceAtDay(liquidationDay, basePrice, marketConditions) : currentPrice
+  const collateralValueUSD = liquidated ? 0 : calculateCollateralValueUSD(collateralAmount, currentPrice)
+  const healthFactor = liquidated ? 0 : calculateHealthFactor(collateralAmount, currentPrice, debtAmount)
 
   // Calculate returns using equity-based formula
   const initialCollateralValue = initialCollateral * basePrice
-  let totalReturns: number
-  let status: 'healthy' | 'warning' | 'liquidated'
+  const totalReturns = calculateNetReturns(
+    liquidated ? 0 : collateralValueUSD,
+    initialCollateralValue,
+    liquidated ? 0 : debtAmount,
+    initialBorrow,
+    liquidated
+  )
 
+  // Determine status
+  let status: 'healthy' | 'warning' | 'liquidated' = 'healthy'
   if (liquidated) {
-    totalReturns = calculateNetReturns(
-      collateralValueUSD,
-      initialCollateralValue,
-      currentDebt,
-      initialBorrow,
-      true
-    )
     status = 'liquidated'
-  } else {
-    totalReturns = calculateNetReturns(
-      collateralValueUSD,
-      initialCollateralValue,
-      currentDebt,
-      initialBorrow,
-      false
-    )
-
-    // Determine status based on health
-    if (healthFactor >= PROTOCOL_CONFIG.targetHealth) {
-      status = 'healthy'
-    } else {
-      status = 'warning'
-    }
+  } else if (healthFactor < PROTOCOL_CONFIG.targetHealth) {
+    status = 'warning'
   }
 
   return {
     day,
-    collateralAmount: liquidated ? 0 : initialCollateral,
-    collateralValueUSD: liquidated ? 0 : collateralValueUSD,
-    debtAmount: liquidated ? 0 : currentDebt,
-    debtValueUSD: liquidated ? 0 : currentDebt,
-    healthFactor: liquidated ? 0 : healthFactor,
+    collateralAmount: liquidated ? 0 : collateralAmount,
+    collateralValueUSD,
+    debtAmount: liquidated ? 0 : debtAmount,
+    debtValueUSD: liquidated ? 0 : debtAmount,
+    healthFactor,
     status,
     totalReturns,
-    accruedInterest,
+    accruedInterest: totalInterestPaid,
     rebalanceCount: 0,
   }
 }

@@ -91,6 +91,7 @@ export function simulateToDay(
     basePrice: state.baseFlowPrice,
     day: clampedDay,
     borrowAPY: effectiveBorrowAPY,
+    marketConditions: state.marketConditions,
   })
 
   // Simulate FCM position
@@ -100,6 +101,7 @@ export function simulateToDay(
     basePrice: state.baseFlowPrice,
     day: clampedDay,
     borrowAPY: effectiveBorrowAPY,
+    marketConditions: state.marketConditions,
   })
 
   // Generate events
@@ -109,7 +111,8 @@ export function simulateToDay(
     state.baseFlowPrice,
     state.marketConditions.priceChange,
     traditional,
-    fcm
+    fcm,
+    state.marketConditions
   )
 
   // Filter events up to current day

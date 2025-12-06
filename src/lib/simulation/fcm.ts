@@ -1,4 +1,4 @@
-import { PositionState } from '@/types'
+import { PositionState, MarketConditions } from '@/types'
 import { PROTOCOL_CONFIG } from '@/lib/constants'
 import {
   calculateHealthFactor,
@@ -9,25 +9,30 @@ import {
   calculateNetReturns,
   needsRebalancing,
   isLiquidatable,
+  calculatePriceAtDay,
 } from './calculations'
+import { getTokenPrice } from '@/data/historicPrices'
 
 /**
  * FCM (Flow Credit Market) Lending Simulation
  *
- * FCM has AUTOMATIC REBALANCING:
- * - When health < minHealth (1.1), automatically repays debt
- * - When health > maxHealth (1.5), can borrow more
- * - Target health is 1.3
+ * FCM has AUTOMATIC REBALANCING based on the Flow Credit Market documentation:
+ * - When health < minHealth (1.1), automatically repays debt using collateral
+ * - The TopUpSource pulls funds to repay debt, restoring health to target (1.3)
+ * - This protects users from liquidation in normal market conditions
  *
- * This protects users from liquidation in normal market conditions.
+ * Key difference from traditional lending:
+ * - Traditional: No action taken when health drops → liquidation
+ * - FCM: Automatic debt repayment → position survives
  */
 
 export interface FCMSimulationParams {
-  initialCollateral: number      // Initial FLOW deposited
-  currentPrice: number           // Current FLOW price
-  basePrice: number              // Starting FLOW price
+  initialCollateral: number      // Initial tokens deposited
+  currentPrice: number           // Current token price (for final day display)
+  basePrice: number              // Starting token price (Day 0)
   day: number                    // Current simulation day
   borrowAPY: number              // Annual borrow interest rate
+  marketConditions?: MarketConditions  // For historic price lookup
 }
 
 interface FCMState {
@@ -72,8 +77,35 @@ export function initializeFCMPosition(
 }
 
 /**
+ * Helper function to get price at a specific day
+ * Uses historic data if available, otherwise calculates simulated price
+ */
+function getPriceAtDay(
+  day: number,
+  basePrice: number,
+  marketConditions?: MarketConditions
+): number {
+  if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
+    return getTokenPrice(marketConditions.collateralToken, day)
+  }
+  // Fallback to simulated price
+  return calculatePriceAtDay(
+    basePrice,
+    marketConditions?.priceChange ?? -30,
+    day,
+    365,
+    marketConditions?.volatility ?? 'medium'
+  )
+}
+
+/**
  * Simulate FCM position at a given day
- * This is the key differentiator from traditional lending
+ *
+ * This is the key differentiator from traditional lending:
+ * - FCM monitors health factor continuously
+ * - When health drops below minHealth (1.1), FCM triggers automatic rebalancing
+ * - Rebalancing uses collateral to repay debt, restoring health to target (1.3)
+ * - This protects the position from liquidation
  */
 export function simulateFCMPosition(
   params: FCMSimulationParams
@@ -84,16 +116,18 @@ export function simulateFCMPosition(
     basePrice,
     day,
     borrowAPY,
+    marketConditions,
   } = params
 
-  // Get initial borrow amount
+  // Get initial borrow amount at target health (1.3)
+  // Borrow = (Collateral × Price × CollateralFactor) / TargetHealth
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
     PROTOCOL_CONFIG.targetHealth
   )
 
-  // Start simulation from day 0 or get cached state
+  // Initialize FCM state
   let state: FCMState = {
     collateralAmount: initialCollateral,
     debtAmount: initialBorrow,
@@ -101,30 +135,29 @@ export function simulateFCMPosition(
     totalInterestPaid: 0,
   }
 
-  // Simulate day by day (needed because rebalancing changes state)
+  // Simulate day by day - FCM monitors and rebalances continuously
   for (let d = 1; d <= day; d++) {
-    // Calculate price at this day (linear interpolation)
-    const progress = d / 365 // Assuming 365 day simulation
-    const priceChangePercent = ((currentPrice - basePrice) / basePrice) * 100
-    const dayPrice = basePrice * (1 + (priceChangePercent / 100) * (d / day))
+    // Get the ACTUAL price at this day (historic or simulated)
+    const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
-    // Add daily interest to debt
+    // 1. Accrue daily interest on debt (this is a lending fee)
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
     state.debtAmount += dailyInterest
     state.totalInterestPaid += dailyInterest
 
-    // Calculate current health
+    // 2. Calculate current health factor
     const currentHealth = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
       state.debtAmount
     )
 
-    // Check if rebalancing is needed
-    const rebalanceType = needsRebalancing(currentHealth)
+    // 3. Check if rebalancing is needed (FCM's automatic protection)
+    if (currentHealth < PROTOCOL_CONFIG.minHealth && currentHealth > 0) {
+      // Health too low - FCM automatically repays debt to restore target health
+      // This is the key FCM feature from the documentation:
+      // "When health < minHealth (1.1), automatically repays debt using collateral"
 
-    if (rebalanceType === 'under') {
-      // Health too low - repay debt to restore target health
       const repayAmount = calculateRebalanceRepayAmount(
         currentHealth,
         PROTOCOL_CONFIG.targetHealth,
@@ -133,21 +166,22 @@ export function simulateFCMPosition(
         dayPrice
       )
 
-      if (repayAmount > 0) {
-        // In FCM, repayment comes from collateral (via TopUpSource)
-        // The debt is reduced, but some collateral is sold to cover it
+      if (repayAmount > 0 && repayAmount <= state.debtAmount) {
+        // FCM uses TopUpSource to pull collateral and repay debt
+        // Collateral is sold at current price to get stablecoins to repay
         const collateralToSell = repayAmount / dayPrice
-        state.collateralAmount -= collateralToSell
-        state.debtAmount -= repayAmount
-        state.rebalanceCount++
+
+        // Only rebalance if we have enough collateral
+        if (collateralToSell <= state.collateralAmount) {
+          state.collateralAmount -= collateralToSell
+          state.debtAmount -= repayAmount
+          state.rebalanceCount++
+        }
       }
-    } else if (rebalanceType === 'over') {
-      // Health too high - could borrow more (but we'll skip this for simplicity)
-      // This is a feature but not critical for the demo
     }
   }
 
-  // Final calculations at target day
+  // Final calculations at target day using current price
   const collateralValueUSD = calculateCollateralValueUSD(state.collateralAmount, currentPrice)
   const healthFactor = calculateHealthFactor(
     state.collateralAmount,
@@ -155,10 +189,13 @@ export function simulateFCMPosition(
     state.debtAmount
   )
 
-  // FCM should never be liquidated (in normal conditions)
+  // FCM should survive crashes through rebalancing
+  // Only liquidates in extreme conditions where rebalancing can't keep up
   const liquidated = isLiquidatable(healthFactor)
 
-  // Calculate returns using equity-based formula
+  // Calculate net returns (equity-based)
+  // Initial equity = $1000 collateral - ~$615 debt = ~$385
+  // Final equity = current collateral value - current debt
   const initialCollateralValue = initialCollateral * basePrice
   const totalReturns = calculateNetReturns(
     collateralValueUSD,
@@ -198,7 +235,8 @@ export function getFCMRebalanceEvents(
   basePrice: number,
   targetPriceChangePercent: number,
   targetDay: number,
-  borrowAPY: number
+  borrowAPY: number,
+  marketConditions?: MarketConditions
 ): Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> {
   const events: Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> = []
 
@@ -214,8 +252,8 @@ export function getFCMRebalanceEvents(
   }
 
   for (let d = 1; d <= targetDay; d++) {
-    const progress = d / 365
-    const dayPrice = basePrice * (1 + (targetPriceChangePercent / 100) * progress)
+    // Get ACTUAL price at this day (historic or simulated)
+    const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
     // Add interest
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
@@ -229,7 +267,7 @@ export function getFCMRebalanceEvents(
     )
 
     // Check for rebalancing
-    if (healthBefore < PROTOCOL_CONFIG.minHealth) {
+    if (healthBefore < PROTOCOL_CONFIG.minHealth && healthBefore > 0) {
       const repayAmount = calculateRebalanceRepayAmount(
         healthBefore,
         PROTOCOL_CONFIG.targetHealth,
@@ -238,23 +276,25 @@ export function getFCMRebalanceEvents(
         dayPrice
       )
 
-      if (repayAmount > 0) {
+      if (repayAmount > 0 && repayAmount <= state.debtAmount) {
         const collateralToSell = repayAmount / dayPrice
-        state.collateralAmount -= collateralToSell
-        state.debtAmount -= repayAmount
+        if (collateralToSell <= state.collateralAmount) {
+          state.collateralAmount -= collateralToSell
+          state.debtAmount -= repayAmount
 
-        const healthAfter = calculateHealthFactor(
-          state.collateralAmount,
-          dayPrice,
-          state.debtAmount
-        )
+          const healthAfter = calculateHealthFactor(
+            state.collateralAmount,
+            dayPrice,
+            state.debtAmount
+          )
 
-        events.push({
-          day: d,
-          healthBefore,
-          healthAfter,
-          repaidAmount: repayAmount,
-        })
+          events.push({
+            day: d,
+            healthBefore,
+            healthAfter,
+            repaidAmount: repayAmount,
+          })
+        }
       }
     }
   }
