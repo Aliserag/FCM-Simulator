@@ -16,6 +16,8 @@ export function calculateHealthFactor(
   debtAmount: number,
   collateralFactor: number = PROTOCOL_CONFIG.collateralFactor
 ): number {
+  // Input validation - return safe defaults for invalid inputs
+  if (collateralAmount <= 0 || collateralPrice <= 0) return 0
   if (debtAmount <= 0) return Infinity
   const effectiveCollateral = collateralAmount * collateralPrice * collateralFactor
   return effectiveCollateral / debtAmount
@@ -29,6 +31,7 @@ export function calculateEffectiveCollateral(
   collateralPrice: number,
   collateralFactor: number = PROTOCOL_CONFIG.collateralFactor
 ): number {
+  if (collateralAmount <= 0 || collateralPrice <= 0) return 0
   return collateralAmount * collateralPrice * collateralFactor
 }
 
@@ -126,7 +129,9 @@ export function calculatePriceAtDay(
     trendChange = (targetChangePercent / 100) * progress
   }
 
-  return basePrice * (1 + trendChange + noise)
+  // Calculate raw price and enforce a floor (never below 0.1% of base price)
+  const rawPrice = basePrice * (1 + trendChange + noise)
+  return Math.max(basePrice * 0.001, rawPrice)
 }
 
 /**

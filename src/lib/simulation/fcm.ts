@@ -125,13 +125,15 @@ export function simulateFCMPosition(
   // Get FCM thresholds from overrides or defaults
   const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
   const fcmMinHealth = marketConditions?.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth
+  const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
 
   // Get initial borrow amount at target health
   // Borrow = (Collateral × Price × CollateralFactor) / TargetHealth
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
-    fcmTargetHealth
+    fcmTargetHealth,
+    collateralFactor
   )
 
   // Initialize FCM state
@@ -179,7 +181,8 @@ export function simulateFCMPosition(
     const currentHealth = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
-      state.debtAmount
+      state.debtAmount,
+      collateralFactor
     )
 
     // 5. Check if rebalancing is needed (FCM's automatic protection)
@@ -226,7 +229,8 @@ export function simulateFCMPosition(
   const healthFactor = calculateHealthFactor(
     state.collateralAmount,
     currentPrice,
-    state.debtAmount
+    state.debtAmount,
+    collateralFactor
   )
 
   // FCM should survive crashes through rebalancing
@@ -281,30 +285,53 @@ export function getFCMRebalanceEvents(
 ): Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> {
   const events: Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> = []
 
+  const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
+
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
-    PROTOCOL_CONFIG.targetHealth
+    PROTOCOL_CONFIG.targetHealth,
+    collateralFactor
   )
+
+  // Get supply APY from override or token-specific value (matching main simulation)
+  const tokenSupplyAPY = marketConditions?.supplyAPY
+    ?? (marketConditions?.collateralToken
+      ? getTokenSupplyAPY(marketConditions.collateralToken)
+      : PROTOCOL_CONFIG.supplyAPY)
 
   let state = {
     collateralAmount: initialCollateral,
     debtAmount: initialBorrow,
+    accumulatedYield: 0,
   }
 
   for (let d = 1; d <= targetDay; d++) {
     // Get ACTUAL price at this day (historic or simulated)
     const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
-    // Add interest
+    // 1. Earn daily supply yield on collateral value
+    const collateralValueUSD = state.collateralAmount * dayPrice
+    const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
+    state.accumulatedYield += dailyYield
+
+    // 2. Add interest on debt
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
     state.debtAmount += dailyInterest
+
+    // 3. Apply accumulated yield to debt (matching main simulation)
+    if (state.accumulatedYield > 0 && state.debtAmount > 0) {
+      const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
+      state.debtAmount -= yieldToApply
+      state.accumulatedYield -= yieldToApply
+    }
 
     // Calculate health
     const healthBefore = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
-      state.debtAmount
+      state.debtAmount,
+      collateralFactor
     )
 
     // Check for rebalancing
@@ -326,7 +353,8 @@ export function getFCMRebalanceEvents(
           const healthAfter = calculateHealthFactor(
             state.collateralAmount,
             dayPrice,
-            state.debtAmount
+            state.debtAmount,
+            collateralFactor
           )
 
           events.push({

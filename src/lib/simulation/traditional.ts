@@ -100,11 +100,15 @@ export function simulateTraditionalPosition(
     marketConditions,
   } = params
 
+  // Get collateral factor from override or default
+  const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
+
   // Get initial borrow amount at target health (1.3)
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
-    PROTOCOL_CONFIG.targetHealth
+    PROTOCOL_CONFIG.targetHealth,
+    collateralFactor
   )
 
   // Get supply APY from override or token-specific value
@@ -141,11 +145,13 @@ export function simulateTraditionalPosition(
     const currentHealth = calculateHealthFactor(
       collateralAmount,
       dayPrice,
-      debtAmount
+      debtAmount,
+      collateralFactor
     )
 
     // 4. Check for liquidation (traditional has no protection)
-    if (currentHealth < PROTOCOL_CONFIG.liquidationThreshold) {
+    // Liquidate when health drops to or below threshold (1.0)
+    if (currentHealth <= PROTOCOL_CONFIG.liquidationThreshold) {
       liquidated = true
       liquidationDay = d
       break
@@ -155,7 +161,7 @@ export function simulateTraditionalPosition(
   // Final calculations at target day
   const finalPrice = liquidated ? getPriceAtDay(liquidationDay, basePrice, marketConditions) : currentPrice
   const collateralValueUSD = liquidated ? 0 : calculateCollateralValueUSD(collateralAmount, currentPrice)
-  const healthFactor = liquidated ? 0 : calculateHealthFactor(collateralAmount, currentPrice, debtAmount)
+  const healthFactor = liquidated ? 0 : calculateHealthFactor(collateralAmount, currentPrice, debtAmount, collateralFactor)
 
   // Calculate returns using equity-based formula
   const initialCollateralValue = initialCollateral * basePrice
