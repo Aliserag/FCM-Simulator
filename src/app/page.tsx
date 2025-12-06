@@ -144,7 +144,7 @@ export default function SimulatorPage() {
                       : "text-white/40 hover:text-white/60"
                   )}
                 >
-                  Historic (2022)
+                  Historic (2020)
                 </button>
                 <button
                   onClick={() => setDataMode('simulated')}

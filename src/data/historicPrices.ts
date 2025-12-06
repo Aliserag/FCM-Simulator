@@ -1,7 +1,8 @@
 /**
  * Historic price data for popular crypto assets
- * Using current 2025 prices as base, simulating 2022 "Crypto Winter" patterns
- * 2022 had two major crash events: Luna/3AC (May) and FTX (November)
+ * Using current 2025 prices as base, simulating 2020 "COVID Crash & Recovery" patterns
+ * 2020 had a V-shaped pattern: March COVID crash followed by massive recovery to ATH
+ * This demonstrates FCM's advantage: survive the crash, profit from recovery
  */
 
 export interface TokenInfo {
@@ -31,94 +32,94 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'avax' | 'stable'): 
 
     switch (pattern) {
       case 'btc':
-        // BTC 2022: $47k → $16k (66% drop)
-        if (progress < 0.25) {
-          // Q1: Initial decline from ATH
-          multiplier = 1.0 - progress * 0.4 + Math.sin(day * 0.3) * 0.02
-        } else if (progress < 0.42) {
-          // May-June: Luna/3AC crash - steep drop
-          const crashProgress = (progress - 0.25) / 0.17
-          multiplier = 0.90 - crashProgress * 0.35 + Math.sin(day * 0.2) * 0.03
+        // BTC 2020: $9k → $5k crash → $29k ATH (V-shaped recovery)
+        if (progress < 0.15) {
+          // Jan-Feb: Slight rise before crash
+          multiplier = 1.0 + progress * 0.2 + Math.sin(day * 0.3) * 0.02
+        } else if (progress < 0.22) {
+          // March: COVID crash (-45%)
+          const crashProgress = (progress - 0.15) / 0.07
+          multiplier = 1.2 - crashProgress * 0.65 + Math.sin(day * 0.5) * 0.03
+        } else if (progress < 0.5) {
+          // April-June: Recovery phase
+          const recoveryProgress = (progress - 0.22) / 0.28
+          multiplier = 0.55 + recoveryProgress * 0.55 + Math.sin(day * 0.2) * 0.03
         } else if (progress < 0.75) {
-          // Q3: Sideways at lows (~$20k)
-          multiplier = 0.55 + Math.sin(day * 0.15) * 0.04
-        } else if (progress < 0.85) {
-          // Nov: FTX collapse
-          const ftxCrash = (progress - 0.75) / 0.1
-          multiplier = 0.55 - ftxCrash * 0.2 + Math.sin(day * 0.3) * 0.02
+          // July-Sept: Consolidation
+          multiplier = 1.1 + (progress - 0.5) * 0.4 + Math.sin(day * 0.15) * 0.04
         } else {
-          // Dec: Slight recovery
-          const recovery = (progress - 0.85) / 0.15
-          multiplier = 0.35 + recovery * 0.05 + Math.sin(day * 0.25) * 0.02
+          // Oct-Dec: Bull run to ATH
+          const bullProgress = (progress - 0.75) / 0.25
+          multiplier = 1.2 + bullProgress * 2.0 + Math.sin(day * 0.25) * 0.05
         }
         break
 
       case 'eth':
-        // ETH 2022: $3.4k → $880 (74% drop)
-        if (progress < 0.25) {
-          // Q1: Initial decline from ATH
-          multiplier = 1.0 - progress * 0.5 + Math.sin(day * 0.3) * 0.03
-        } else if (progress < 0.42) {
-          // May-June: Luna crash - steep drop
-          const crashProgress = (progress - 0.25) / 0.17
-          multiplier = 0.875 - crashProgress * 0.45 + Math.sin(day * 0.2) * 0.04
+        // ETH 2020: $130 → $65 crash → $730 ATH (V-shaped recovery, ~5.5x)
+        if (progress < 0.15) {
+          // Jan-Feb: Slight rise before crash
+          multiplier = 1.0 + progress * 0.3 + Math.sin(day * 0.3) * 0.03
+        } else if (progress < 0.22) {
+          // March: COVID crash (-50%)
+          const crashProgress = (progress - 0.15) / 0.07
+          multiplier = 1.3 - crashProgress * 0.8 + Math.sin(day * 0.5) * 0.04
+        } else if (progress < 0.5) {
+          // April-June: Recovery phase
+          const recoveryProgress = (progress - 0.22) / 0.28
+          multiplier = 0.5 + recoveryProgress * 0.7 + Math.sin(day * 0.2) * 0.04
         } else if (progress < 0.75) {
-          // Q3: Sideways at lows
-          multiplier = 0.42 + Math.sin(day * 0.15) * 0.05
-        } else if (progress < 0.85) {
-          // Nov: FTX collapse
-          const ftxCrash = (progress - 0.75) / 0.1
-          multiplier = 0.45 - ftxCrash * 0.18 + Math.sin(day * 0.3) * 0.02
+          // July-Sept: Consolidation and DeFi summer
+          multiplier = 1.2 + (progress - 0.5) * 1.2 + Math.sin(day * 0.15) * 0.05
         } else {
-          // Dec: Slight recovery
-          const recovery = (progress - 0.85) / 0.15
-          multiplier = 0.27 + recovery * 0.06 + Math.sin(day * 0.25) * 0.02
+          // Oct-Dec: Bull run to ATH
+          const bullProgress = (progress - 0.75) / 0.25
+          multiplier = 1.5 + bullProgress * 4.0 + Math.sin(day * 0.25) * 0.06
         }
         break
 
       case 'sol':
-        // SOL 2022: $180 → $8 (96% drop) - hit hardest due to FTX connection
-        if (progress < 0.25) {
-          // Q1: Initial decline
-          multiplier = 1.0 - progress * 0.6 + Math.sin(day * 0.4) * 0.04
-        } else if (progress < 0.42) {
-          // May-June: Luna crash
-          const crashProgress = (progress - 0.25) / 0.17
-          multiplier = 0.85 - crashProgress * 0.45 + Math.sin(day * 0.3) * 0.05
+        // SOL 2020: Launched March 2020, volatile first year (~4x gain)
+        if (progress < 0.15) {
+          // Jan-Feb: Pre-launch (stable at base)
+          multiplier = 1.0 + Math.sin(day * 0.3) * 0.02
+        } else if (progress < 0.22) {
+          // March: Launch period with initial volatility
+          const launchProgress = (progress - 0.15) / 0.07
+          multiplier = 1.0 - launchProgress * 0.4 + Math.sin(day * 0.6) * 0.05
+        } else if (progress < 0.5) {
+          // April-June: Early growth phase
+          const growthProgress = (progress - 0.22) / 0.28
+          multiplier = 0.6 + growthProgress * 0.8 + Math.sin(day * 0.25) * 0.06
         } else if (progress < 0.75) {
-          // Q3: Weak consolidation
-          multiplier = 0.40 + Math.sin(day * 0.2) * 0.06
-        } else if (progress < 0.85) {
-          // Nov: FTX collapse - SOL hit hardest
-          const ftxCrash = (progress - 0.75) / 0.1
-          multiplier = 0.35 - ftxCrash * 0.28 + Math.sin(day * 0.35) * 0.02
+          // July-Sept: Consolidation
+          multiplier = 1.4 + (progress - 0.5) * 0.8 + Math.sin(day * 0.2) * 0.08
         } else {
-          // Dec: Barely any recovery
-          const recovery = (progress - 0.85) / 0.15
-          multiplier = 0.07 + recovery * 0.03 + Math.sin(day * 0.25) * 0.01
+          // Oct-Dec: Bull run
+          const bullProgress = (progress - 0.75) / 0.25
+          multiplier = 1.6 + bullProgress * 2.4 + Math.sin(day * 0.3) * 0.08
         }
         break
 
       case 'avax':
-        // AVAX 2022: $130 → $12 (91% drop)
-        if (progress < 0.25) {
-          // Q1: Initial decline
-          multiplier = 1.0 - progress * 0.55 + Math.sin(day * 0.35) * 0.04
-        } else if (progress < 0.42) {
-          // May-June: Luna crash
-          const crashProgress = (progress - 0.25) / 0.17
-          multiplier = 0.86 - crashProgress * 0.50 + Math.sin(day * 0.28) * 0.05
+        // AVAX 2020: Launched Sept 2020, similar V-shape pattern for demo
+        if (progress < 0.15) {
+          // Jan-Feb: Pre-launch baseline
+          multiplier = 1.0 + progress * 0.15 + Math.sin(day * 0.3) * 0.02
+        } else if (progress < 0.22) {
+          // March: COVID crash period
+          const crashProgress = (progress - 0.15) / 0.07
+          multiplier = 1.15 - crashProgress * 0.55 + Math.sin(day * 0.5) * 0.04
+        } else if (progress < 0.5) {
+          // April-June: Recovery
+          const recoveryProgress = (progress - 0.22) / 0.28
+          multiplier = 0.6 + recoveryProgress * 0.6 + Math.sin(day * 0.2) * 0.05
         } else if (progress < 0.75) {
-          // Q3: Weak at lows
-          multiplier = 0.36 + Math.sin(day * 0.18) * 0.05
-        } else if (progress < 0.85) {
-          // Nov: FTX collapse
-          const ftxCrash = (progress - 0.75) / 0.1
-          multiplier = 0.38 - ftxCrash * 0.25 + Math.sin(day * 0.3) * 0.02
+          // July-Sept: Launch and growth
+          multiplier = 1.2 + (progress - 0.5) * 1.0 + Math.sin(day * 0.18) * 0.06
         } else {
-          // Dec: Slight recovery
-          const recovery = (progress - 0.85) / 0.15
-          multiplier = 0.13 + recovery * 0.04 + Math.sin(day * 0.25) * 0.01
+          // Oct-Dec: Bull run
+          const bullProgress = (progress - 0.75) / 0.25
+          multiplier = 1.45 + bullProgress * 2.0 + Math.sin(day * 0.25) * 0.06
         }
         break
 
