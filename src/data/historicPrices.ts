@@ -100,29 +100,6 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'avax' | 'stable'): 
         }
         break
 
-      case 'avax':
-        // AVAX 2020: Launched Sept 2020, similar V-shape pattern for demo
-        if (progress < 0.15) {
-          // Jan-Feb: Pre-launch baseline
-          multiplier = 1.0 + progress * 0.15 + Math.sin(day * 0.3) * 0.02
-        } else if (progress < 0.22) {
-          // March: COVID crash period
-          const crashProgress = (progress - 0.15) / 0.07
-          multiplier = 1.15 - crashProgress * 0.55 + Math.sin(day * 0.5) * 0.04
-        } else if (progress < 0.5) {
-          // April-June: Recovery
-          const recoveryProgress = (progress - 0.22) / 0.28
-          multiplier = 0.6 + recoveryProgress * 0.6 + Math.sin(day * 0.2) * 0.05
-        } else if (progress < 0.75) {
-          // July-Sept: Launch and growth
-          multiplier = 1.2 + (progress - 0.5) * 1.0 + Math.sin(day * 0.18) * 0.06
-        } else {
-          // Oct-Dec: Bull run
-          const bullProgress = (progress - 0.75) / 0.25
-          multiplier = 1.45 + bullProgress * 2.0 + Math.sin(day * 0.25) * 0.06
-        }
-        break
-
       case 'stable':
         multiplier = 1 + Math.sin(day * 0.1) * 0.001
         break
@@ -169,16 +146,6 @@ export const TOKENS: TokenInfo[] = [
     collateralFactor: 0.70,
     supplyAPY: 0.05,       // 5% - higher yields on Solana DeFi
     priceMultipliers: generatePriceData('sol'),
-  },
-  {
-    id: 'avax',
-    symbol: 'AVAX',
-    name: 'Avalanche',
-    color: '#E84142',
-    basePrice: 52,         // ~$52 December 2025
-    collateralFactor: 0.65,
-    supplyAPY: 0.04,       // 4% - competitive Avalanche yields
-    priceMultipliers: generatePriceData('avax'),
   },
 ]
 
