@@ -122,12 +122,16 @@ export function simulateFCMPosition(
     marketConditions,
   } = params
 
-  // Get initial borrow amount at target health (1.3)
+  // Get FCM thresholds from overrides or defaults
+  const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+  const fcmMinHealth = marketConditions?.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth
+
+  // Get initial borrow amount at target health
   // Borrow = (Collateral × Price × CollateralFactor) / TargetHealth
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
-    PROTOCOL_CONFIG.targetHealth
+    fcmTargetHealth
   )
 
   // Initialize FCM state
@@ -140,10 +144,11 @@ export function simulateFCMPosition(
     accumulatedYield: 0,
   }
 
-  // Get token-specific supply APY (based on 2022 DeFi yields)
-  const tokenSupplyAPY = marketConditions?.collateralToken
-    ? getTokenSupplyAPY(marketConditions.collateralToken)
-    : PROTOCOL_CONFIG.supplyAPY
+  // Get supply APY from override or token-specific value
+  const tokenSupplyAPY = marketConditions?.supplyAPY
+    ?? (marketConditions?.collateralToken
+      ? getTokenSupplyAPY(marketConditions.collateralToken)
+      : PROTOCOL_CONFIG.supplyAPY)
 
   // Simulate day by day - FCM monitors and rebalances continuously
   for (let d = 1; d <= day; d++) {
@@ -178,14 +183,14 @@ export function simulateFCMPosition(
     )
 
     // 5. Check if rebalancing is needed (FCM's automatic protection)
-    if (currentHealth < PROTOCOL_CONFIG.minHealth && currentHealth > 0) {
+    if (currentHealth < fcmMinHealth && currentHealth > 0) {
       // Health too low - FCM automatically repays debt to restore target health
       // This is the key FCM feature from the documentation:
-      // "When health < minHealth (1.1), automatically repays debt using collateral"
+      // "When health < minHealth, automatically repays debt using collateral"
 
       const repayAmount = calculateRebalanceRepayAmount(
         currentHealth,
-        PROTOCOL_CONFIG.targetHealth,
+        fcmTargetHealth,
         state.debtAmount,
         state.collateralAmount,
         dayPrice
@@ -244,7 +249,7 @@ export function simulateFCMPosition(
   let status: 'healthy' | 'warning' | 'liquidated' = 'healthy'
   if (liquidated) {
     status = 'liquidated'
-  } else if (healthFactor < PROTOCOL_CONFIG.targetHealth) {
+  } else if (healthFactor < fcmTargetHealth) {
     status = 'warning'
   }
 

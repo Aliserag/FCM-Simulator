@@ -34,6 +34,12 @@ export interface MarketConditions {
   dataMode: 'simulated' | 'historic'  // Use simulated or real historic data
   collateralToken: string       // Selected collateral token (btc, eth, sol, etc.)
   debtToken: string             // Selected debt token (usdc, usdt, dai)
+  // Protocol config overrides (for simulated mode)
+  borrowAPY?: number            // Override borrow APY
+  supplyAPY?: number            // Override supply APY
+  basePrice?: number            // Override base token price
+  fcmMinHealth?: number         // FCM rebalance trigger threshold
+  fcmTargetHealth?: number      // FCM rebalance restore target
 }
 
 // Full simulation state

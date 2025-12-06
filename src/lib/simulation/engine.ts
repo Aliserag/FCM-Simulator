@@ -27,11 +27,14 @@ export function initializeSimulation(
     debtToken: 'usdc',
   }
 ): SimulationState {
-  // Get day 0 price from token or use default
-  let day0Price = PROTOCOL_CONFIG.baseFlowPrice
+  // Get day 0 price from token or use override
+  let day0Price: number
   if (marketConditions.dataMode === 'historic') {
     // Day 0 price is the token price at the start of the simulation
     day0Price = getTokenPrice(marketConditions.collateralToken, 0)
+  } else {
+    // Use override or default
+    day0Price = marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice
   }
 
   // Calculate token amount from USD value at day 0 price
@@ -78,8 +81,9 @@ export function simulateToDay(
     )
   }
 
-  // Calculate effective borrow APY with any rate changes
-  const effectiveBorrowAPY = PROTOCOL_CONFIG.borrowAPY + (state.marketConditions.interestRateChange / 100)
+  // Calculate effective borrow APY with any rate changes or overrides
+  const baseBorrowAPY = state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY
+  const effectiveBorrowAPY = baseBorrowAPY + (state.marketConditions.interestRateChange / 100)
 
   // Calculate initial collateral in tokens from USD value at day 0 price
   const initialCollateralTokens = state.initialDeposit / state.baseFlowPrice

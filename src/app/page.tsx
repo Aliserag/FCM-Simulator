@@ -49,6 +49,11 @@ export default function SimulatorPage() {
     setCollateralToken,
     setDebtToken,
     applyScenario,
+    setBorrowAPY,
+    setSupplyAPY,
+    setBasePrice,
+    setFcmMinHealth,
+    setFcmTargetHealth,
     scenarios,
     tokens,
     debtTokens,
@@ -406,6 +411,101 @@ export default function SimulatorPage() {
                   onChange={(e) => setInterestRateChange(Number(e.target.value))}
                   className="w-full accent-cyan-500"
                 />
+              </div>
+            </div>
+
+            {/* Advanced Settings */}
+            <div className="border-t border-white/10 pt-4 mt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Settings2 className="w-4 h-4 text-white/60" />
+                <span className="text-sm font-medium text-white/80">Advanced Settings</span>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Base Token Price */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white/60">Base Token Price</span>
+                    <span className="font-mono">${state.marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={state.marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice}
+                    onChange={(e) => setBasePrice(Number(e.target.value))}
+                    className="w-full accent-cyan-500"
+                  />
+                </div>
+
+                {/* Borrow APY */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white/60">Borrow APY</span>
+                    <span className="font-mono">{formatPercent((state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY) * 100, 1)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={20}
+                    step={0.5}
+                    value={(state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY) * 100}
+                    onChange={(e) => setBorrowAPY(Number(e.target.value) / 100)}
+                    className="w-full accent-cyan-500"
+                  />
+                </div>
+
+                {/* Supply APY */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white/60">Supply APY</span>
+                    <span className="font-mono">{formatPercent((state.marketConditions.supplyAPY ?? PROTOCOL_CONFIG.supplyAPY) * 100, 1)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={15}
+                    step={0.5}
+                    value={(state.marketConditions.supplyAPY ?? PROTOCOL_CONFIG.supplyAPY) * 100}
+                    onChange={(e) => setSupplyAPY(Number(e.target.value) / 100)}
+                    className="w-full accent-cyan-500"
+                  />
+                </div>
+
+                {/* FCM Min Health (Rebalance Trigger) */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white/60">FCM Rebalance Trigger</span>
+                    <span className="font-mono">{(state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth).toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1.05}
+                    max={1.5}
+                    step={0.05}
+                    value={state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth}
+                    onChange={(e) => setFcmMinHealth(Number(e.target.value))}
+                    className="w-full accent-emerald-500"
+                  />
+                </div>
+
+                {/* FCM Target Health (Restore To) */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white/60">FCM Target Health</span>
+                    <span className="font-mono">{(state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth).toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1.1}
+                    max={2.0}
+                    step={0.05}
+                    value={state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth}
+                    onChange={(e) => setFcmTargetHealth(Number(e.target.value))}
+                    className="w-full accent-emerald-500"
+                  />
+                </div>
               </div>
             </div>
           </div>

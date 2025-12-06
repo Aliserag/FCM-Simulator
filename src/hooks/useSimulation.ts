@@ -35,6 +35,13 @@ interface UseSimulationReturn {
   setDebtToken: (tokenId: string) => void
   applyScenario: (scenario: Scenario) => void
 
+  // Protocol config overrides (for simulated mode)
+  setBorrowAPY: (apy: number) => void
+  setSupplyAPY: (apy: number) => void
+  setBasePrice: (price: number) => void
+  setFcmMinHealth: (health: number) => void
+  setFcmTargetHealth: (health: number) => void
+
   // Computed
   comparison: ReturnType<typeof getComparisonSummary>
   displayMetrics: ReturnType<typeof getDisplayMetrics>
@@ -131,6 +138,62 @@ export function useSimulation(
     setState(prev => updateMarketConditions(prev, { debtToken: tokenId }))
   }, [])
 
+  // Protocol config overrides (for simulated mode)
+  const setBorrowAPY = useCallback((apy: number) => {
+    pause()
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        borrowAPY: apy,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
+  const setSupplyAPY = useCallback((apy: number) => {
+    pause()
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        supplyAPY: apy,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
+  const setBasePrice = useCallback((price: number) => {
+    pause()
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        basePrice: price,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
+  const setFcmMinHealth = useCallback((health: number) => {
+    pause()
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        fcmMinHealth: health,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
+  const setFcmTargetHealth = useCallback((health: number) => {
+    pause()
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        fcmTargetHealth: health,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
   // Apply scenario preset
   const applyScenario = useCallback((scenario: Scenario) => {
     pause()
@@ -206,6 +269,11 @@ export function useSimulation(
     setCollateralToken,
     setDebtToken,
     applyScenario,
+    setBorrowAPY,
+    setSupplyAPY,
+    setBasePrice,
+    setFcmMinHealth,
+    setFcmTargetHealth,
     comparison,
     displayMetrics,
     scenarios: SCENARIOS,
