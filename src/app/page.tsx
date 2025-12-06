@@ -482,19 +482,19 @@ function PositionPanel({
 
   const getHealthColor = () => {
     if (isLiquidated) return 'text-purple-400'
-    if (healthFactor >= 1.3) return 'text-emerald-400'
-    if (healthFactor >= 1.1) return 'text-amber-400'
+    if (healthFactor >= 1.4) return 'text-emerald-400'
+    if (healthFactor >= 1.2) return 'text-amber-400'
     return 'text-red-400'
   }
 
   const getHealthBg = () => {
     if (isLiquidated) return 'bg-purple-500/10'
-    if (healthFactor >= 1.3) return 'bg-emerald-500/10'
-    if (healthFactor >= 1.1) return 'bg-amber-500/10'
+    if (healthFactor >= 1.4) return 'bg-emerald-500/10'
+    if (healthFactor >= 1.2) return 'bg-amber-500/10'
     return 'bg-red-500/10'
   }
 
-  const StatusIcon = isLiquidated ? Skull : healthFactor >= 1.3 ? CheckCircle2 : AlertCircle
+  const StatusIcon = isLiquidated ? Skull : healthFactor >= 1.4 ? CheckCircle2 : AlertCircle
 
   return (
     <div className={cn(
@@ -539,8 +539,8 @@ function PositionPanel({
             className={cn(
               "h-full rounded-full transition-all",
               isLiquidated ? "bg-purple-500" :
-              healthFactor >= 1.3 ? "bg-emerald-500" :
-              healthFactor >= 1.1 ? "bg-amber-500" : "bg-red-500"
+              healthFactor >= 1.4 ? "bg-emerald-500" :
+              healthFactor >= 1.2 ? "bg-amber-500" : "bg-red-500"
             )}
             style={{ width: `${Math.min((healthFactor / 2) * 100, 100)}%` }}
           />

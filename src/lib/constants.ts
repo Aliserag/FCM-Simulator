@@ -3,9 +3,9 @@ import { ProtocolConfig, Scenario, TooltipContent } from '@/types'
 // FCM Protocol Configuration
 export const PROTOCOL_CONFIG: ProtocolConfig = {
   collateralFactor: 0.80,        // 80% of FLOW value counts as collateral
-  targetHealth: 1.30,            // FCM target health factor
-  minHealth: 1.10,               // FCM rebalance trigger (below this)
-  maxHealth: 1.50,               // FCM over-collateralized trigger
+  targetHealth: 1.40,            // FCM target health factor (aggressive)
+  minHealth: 1.20,               // FCM rebalance trigger - rebalance early at higher prices
+  maxHealth: 1.60,               // FCM over-collateralized trigger
   liquidationThreshold: 1.00,    // Both liquidate at health < 1.0
   liquidationBonus: 0.05,        // 5% bonus to liquidators
   borrowAPY: 0.065,              // 6.5% annual borrow interest
@@ -79,7 +79,7 @@ export const TOOLTIPS: Record<string, TooltipContent> = {
   },
   rebalancing: {
     title: 'Automatic Rebalancing',
-    content: 'When health drops below 1.1, FCM automatically repays some debt using your collateral to restore health to 1.3. No manual action needed!',
+    content: 'When health drops below 1.2, FCM automatically repays some debt using your collateral to restore health to 1.4. Rebalancing early preserves more value!',
     benefit: 'You never get liquidated in normal market conditions',
     code: 'pool.rebalancePosition(pid, force: false)',
   },
@@ -100,15 +100,15 @@ export const TOOLTIPS: Record<string, TooltipContent> = {
     code: 'liquidator.liquidateRepayForSeize(pid, debtType, seizeType)',
   },
   targetHealth: {
-    title: 'Target Health (1.3)',
-    content: 'FCM maintains this health ratio through automatic rebalancing. High enough to be safe from liquidation, low enough to be capital efficient.',
+    title: 'Target Health (1.4)',
+    content: 'FCM maintains this health ratio through automatic rebalancing. Set aggressively high to preserve more value during crashes.',
   },
   minHealth: {
-    title: 'Minimum Health (1.1)',
-    content: 'When health drops below this threshold, FCM triggers automatic rebalancing to restore the position to target health (1.3).',
+    title: 'Minimum Health (1.2)',
+    content: 'When health drops below this threshold, FCM triggers automatic rebalancing. Set high to rebalance early when prices are still good.',
   },
   maxHealth: {
-    title: 'Maximum Health (1.5)',
+    title: 'Maximum Health (1.6)',
     content: 'When health rises above this threshold, FCM can borrow more to maximize capital efficiency. Keeps your money working!',
   },
   effectiveCollateral: {
@@ -131,14 +131,14 @@ export const TOOLTIPS: Record<string, TooltipContent> = {
 // Health status colors and labels
 export const HEALTH_STATUS = {
   safe: {
-    min: 1.3,
+    min: 1.4,
     color: 'health-safe',
     bgColor: 'bg-emerald-50',
     textColor: 'text-emerald-600',
     label: 'Healthy',
   },
   warning: {
-    min: 1.1,
+    min: 1.2,
     color: 'health-warning',
     bgColor: 'bg-amber-50',
     textColor: 'text-amber-600',
