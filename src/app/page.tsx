@@ -68,7 +68,7 @@ export default function SimulatorPage() {
   } = useSimulation()
 
   // Live prices from CoinGecko (for simulated mode)
-  const { prices: livePrices, isLoading: pricesLoading, fetchPrices } = useCoinGeckoPrices()
+  const { prices: livePrices, isLoading: pricesLoading, usingFallback, fetchPrices } = useCoinGeckoPrices()
 
   // Track previous status for liquidation detection
   const prevStatusRef = useRef(state.traditional.status)
@@ -158,10 +158,6 @@ export default function SimulatorPage() {
               </>
             )}
           </button>
-
-          <p className="text-white/40 text-sm mt-4">
-            Using real 2020 prices · COVID crash · BTC & ETH
-          </p>
         </div>
 
         {/* Token Selection */}
@@ -176,29 +172,40 @@ export default function SimulatorPage() {
                     const isSelected = state.marketConditions.collateralToken === token.id
                     const price = livePrices[token.id]
                     return (
-                      <button
+                      <Tooltip
                         key={token.id}
-                        onClick={() => {
-                          setCollateralToken(token.id, price)
-                          setBasePrice(price)
-                        }}
-                        className={cn(
-                          "flex flex-col items-center px-2 py-1.5 rounded-lg text-sm font-medium transition-all border min-w-[60px]",
-                          isSelected
-                            ? "border-white/30 bg-white/10"
-                            : "border-transparent hover:bg-white/5"
-                        )}
-                        style={{
-                          borderColor: isSelected ? token.color : undefined
-                        }}
+                        position="bottom"
+                        content={
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold">{token.name}</div>
+                            <div className="text-white/60">LTV: {(token.collateralFactor * 100).toFixed(0)}%</div>
+                            <div className="text-white/60">Supply APY: {(token.supplyAPY * 100).toFixed(1)}%</div>
+                          </div>
+                        }
                       >
-                        <span style={{ color: isSelected ? token.color : 'rgba(255,255,255,0.7)' }}>
-                          {token.symbol}
-                        </span>
-                        <span className="text-[10px] text-white/40 font-mono">
-                          {pricesLoading ? '...' : `$${price?.toLocaleString(undefined, { maximumFractionDigits: price < 1 ? 2 : 0 }) ?? '?'}`}
-                        </span>
-                      </button>
+                        <button
+                          onClick={() => {
+                            setCollateralToken(token.id, price)
+                            setBasePrice(price)
+                          }}
+                          className={cn(
+                            "flex flex-col items-center px-2 py-1.5 rounded-lg text-sm font-medium transition-all border min-w-[60px]",
+                            isSelected
+                              ? "border-white/30 bg-white/10"
+                              : "border-transparent hover:bg-white/5"
+                          )}
+                          style={{
+                            borderColor: isSelected ? token.color : undefined
+                          }}
+                        >
+                          <span style={{ color: isSelected ? token.color : 'rgba(255,255,255,0.7)' }}>
+                            {token.symbol}
+                          </span>
+                          <span className="text-[10px] text-white/40 font-mono">
+                            {pricesLoading ? '...' : `$${price?.toLocaleString(undefined, { maximumFractionDigits: price < 1 ? 2 : 0 }) ?? '?'}`}
+                          </span>
+                        </button>
+                      </Tooltip>
                     )
                   })}
                   <button
@@ -209,6 +216,11 @@ export default function SimulatorPage() {
                   >
                     {pricesLoading ? '...' : '↻'}
                   </button>
+                  {usingFallback && (
+                    <span className="ml-2 text-[10px] text-amber-400" title="Using cached prices - CoinGecko unavailable">
+                      ⚠ Cached
+                    </span>
+                  )}
                 </div>
               ) : (
                 // Historic mode: Only BTC and ETH
@@ -238,7 +250,7 @@ export default function SimulatorPage() {
               <div className="flex gap-1 bg-white/5 rounded-lg p-1">
                 <Tooltip
                   position="bottom"
-                  className="!whitespace-normal w-64 text-left"
+                  className="!whitespace-normal w-72 text-left"
                   content={
                     <div className="space-y-2">
                       <p className="font-semibold text-white">Real 2020 Price Data</p>
@@ -268,20 +280,36 @@ export default function SimulatorPage() {
                         : "text-white/40 hover:text-white/60"
                     )}
                   >
-                    Historic (2020)
+                    Historic Data
                   </button>
                 </Tooltip>
-                <button
-                  onClick={() => setDataMode('simulated')}
-                  className={cn(
-                    "px-3 py-1 rounded-md text-xs font-medium transition-all",
-                    state.marketConditions.dataMode === 'simulated'
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-white/40 hover:text-white/60"
-                  )}
+                <Tooltip
+                  position="bottom"
+                  className="!whitespace-normal w-72 text-left"
+                  content={
+                    <div className="space-y-2">
+                      <p className="font-semibold text-white">Simulated Price Patterns</p>
+                      <p className="text-xs text-white/80 leading-relaxed">
+                        Synthetic price movements based on your settings. Crash scenarios (-20% or worse) use V-shaped recovery patterns modeled on historic crash cycles.
+                      </p>
+                      <p className="text-xs text-white/60">
+                        Price drops to bottom ~35% through the year, then recovers toward target.
+                      </p>
+                    </div>
+                  }
                 >
-                  Simulated
-                </button>
+                  <button
+                    onClick={() => setDataMode('simulated')}
+                    className={cn(
+                      "px-3 py-1 rounded-md text-xs font-medium transition-all",
+                      state.marketConditions.dataMode === 'simulated'
+                        ? "bg-purple-500/20 text-purple-400"
+                        : "text-white/40 hover:text-white/60"
+                    )}
+                  >
+                    Simulated
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -557,17 +585,33 @@ export default function SimulatorPage() {
 
             {/* Advanced Settings - Collapsible */}
             <div className="border-t border-white/10 pt-4 mt-4">
-              <button
-                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                className="flex items-center gap-2 w-full text-left hover:bg-white/5 -mx-2 px-2 py-1 rounded transition-colors"
-              >
-                <Settings2 className="w-4 h-4 text-white/60" />
-                <span className="text-sm font-medium text-white/80">Advanced Settings</span>
-                <ChevronDown className={cn(
-                  "w-4 h-4 text-white/40 ml-auto transition-transform",
-                  showAdvancedSettings && "rotate-180"
-                )} />
-              </button>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                  className="flex items-center gap-2 text-left hover:bg-white/5 -mx-2 px-2 py-1 rounded transition-colors"
+                >
+                  <Settings2 className="w-4 h-4 text-white/60" />
+                  <span className="text-sm font-medium text-white/80">Advanced Settings</span>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-white/40 transition-transform",
+                    showAdvancedSettings && "rotate-180"
+                  )} />
+                </button>
+                {showAdvancedSettings && (
+                  <button
+                    onClick={() => {
+                      setBorrowAPY(PROTOCOL_CONFIG.borrowAPY)
+                      setSupplyAPY(PROTOCOL_CONFIG.supplyAPY)
+                      setFcmMinHealth(PROTOCOL_CONFIG.minHealth)
+                      setFcmTargetHealth(PROTOCOL_CONFIG.targetHealth)
+                      setBasePrice(livePrices[state.marketConditions.collateralToken])
+                    }}
+                    className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                  >
+                    Reset All
+                  </button>
+                )}
+              </div>
 
               {showAdvancedSettings && (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
@@ -636,6 +680,12 @@ export default function SimulatorPage() {
                     onChange={(e) => setSupplyAPY(Number(e.target.value) / 100)}
                     className="w-full"
                   />
+                  {(state.marketConditions.supplyAPY ?? PROTOCOL_CONFIG.supplyAPY) >
+                   (state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY) && (
+                    <p className="text-[10px] text-amber-400 mt-1">
+                      ⚠ Supply APY &gt; Borrow APY creates unrealistic arbitrage
+                    </p>
+                  )}
                 </div>
 
                 {/* FCM Min Health (Rebalance Trigger) */}
@@ -650,9 +700,18 @@ export default function SimulatorPage() {
                     max={1.5}
                     step={0.05}
                     value={state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth}
-                    onChange={(e) => setFcmMinHealth(Number(e.target.value))}
+                    onChange={(e) => {
+                      const newMin = Number(e.target.value)
+                      const currentTarget = state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+                      setFcmMinHealth(newMin)
+                      // Auto-adjust target if min >= target
+                      if (newMin >= currentTarget) {
+                        setFcmTargetHealth(newMin + 0.2)
+                      }
+                    }}
                     className="w-full"
                   />
+                  <p className="text-[10px] text-white/30 mt-1">When health drops below this, FCM rebalances</p>
                 </div>
 
                 {/* FCM Target Health (Restore To) */}
@@ -663,13 +722,14 @@ export default function SimulatorPage() {
                   </div>
                   <input
                     type="range"
-                    min={1.1}
+                    min={(state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth) + 0.1}
                     max={2.0}
                     step={0.05}
                     value={state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth}
                     onChange={(e) => setFcmTargetHealth(Number(e.target.value))}
                     className="w-full"
                   />
+                  <p className="text-[10px] text-white/30 mt-1">Health restored to after rebalance</p>
                 </div>
               </div>
               )}
@@ -703,7 +763,10 @@ export default function SimulatorPage() {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-white/10 text-center text-sm text-white/40">
           <p>Educational simulation of Flow Credit Market</p>
-          <div className="flex items-center justify-center gap-4 mt-2">
+          <p className="mt-2 text-white/30 text-xs max-w-lg mx-auto">
+            Simplified simulation for educational purposes. Assumes perfect rebalancing execution (no slippage or MEV), synthetic price patterns, and no protocol fees.
+          </p>
+          <div className="flex items-center justify-center gap-4 mt-3">
             <a
               href="https://developers.flow.com/blockchain-development-tutorials/forte/scheduled-transactions-introduction"
               target="_blank"

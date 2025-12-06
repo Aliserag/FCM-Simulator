@@ -26,6 +26,7 @@ interface UseCoinGeckoPricesReturn {
   prices: Record<string, number>
   isLoading: boolean
   error: string | null
+  usingFallback: boolean
   fetchPrices: () => Promise<void>
   updatePrice: (tokenId: string, price: number) => void
 }
@@ -34,6 +35,7 @@ export function useCoinGeckoPrices(): UseCoinGeckoPricesReturn {
   const [prices, setPrices] = useState<Record<string, number>>(FALLBACK_PRICES)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [usingFallback, setUsingFallback] = useState(false)
 
   const fetchPrices = useCallback(async () => {
     setIsLoading(true)
@@ -58,10 +60,12 @@ export function useCoinGeckoPrices(): UseCoinGeckoPricesReturn {
       }
 
       setPrices(newPrices)
+      setUsingFallback(false)
     } catch (e) {
       console.warn('CoinGecko fetch failed, using fallback prices:', e)
       setError('Failed to fetch live prices')
       setPrices(FALLBACK_PRICES)
+      setUsingFallback(true)
     } finally {
       setIsLoading(false)
     }
@@ -77,7 +81,7 @@ export function useCoinGeckoPrices(): UseCoinGeckoPricesReturn {
     setPrices(prev => ({ ...prev, [tokenId]: price }))
   }, [])
 
-  return { prices, isLoading, error, fetchPrices, updatePrice }
+  return { prices, isLoading, error, usingFallback, fetchPrices, updatePrice }
 }
 
 // Export fallback prices for use elsewhere
