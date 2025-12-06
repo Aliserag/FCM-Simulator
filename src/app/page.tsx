@@ -632,6 +632,11 @@ interface EventRowProps {
   event: SimulationEvent
 }
 
+const DOCS_LINKS = {
+  scheduledTxn: 'https://developers.flow.com/blockchain-development-tutorials/forte/scheduled-transactions/scheduled-transactions-introduction',
+  defiActions: 'https://developers.flow.com/blockchain-development-tutorials/forte/flow-actions',
+}
+
 function EventRow({ event }: EventRowProps) {
   const getIcon = () => {
     switch (event.type) {
@@ -651,6 +656,59 @@ function EventRow({ event }: EventRowProps) {
     return 'text-cyan-400'
   }
 
+  // Render action text with hyperlinks for scheduled transactions
+  const renderAction = () => {
+    if (event.type === 'scheduled') {
+      return (
+        <a
+          href={DOCS_LINKS.scheduledTxn}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-amber-400 hover:text-amber-300 underline decoration-amber-400/50 hover:decoration-amber-300"
+        >
+          {event.action}
+        </a>
+      )
+    }
+    return <span className="text-sm text-white/80">{event.action}</span>
+  }
+
+  // Render code with hyperlinks for DeFi actions (TopUpSource, Sink, etc.)
+  const renderCode = () => {
+    const code = event.code
+    // Check if this event uses DeFi actions (TopUpSource, Sink, DrawDownSink)
+    if (code.includes('TopUpSource') || code.includes('Sink') || code.includes('DrawDownSink')) {
+      return (
+        <a
+          href={DOCS_LINKS.defiActions}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-purple-400 hover:text-purple-300 font-mono mt-1 block truncate underline decoration-purple-400/50 hover:decoration-purple-300"
+        >
+          {code}
+        </a>
+      )
+    }
+    // Check if this is a scheduled transaction
+    if (code.includes('ScheduledTxn')) {
+      return (
+        <a
+          href={DOCS_LINKS.scheduledTxn}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-amber-400 hover:text-amber-300 font-mono mt-1 block truncate underline decoration-amber-400/50 hover:decoration-amber-300"
+        >
+          {code}
+        </a>
+      )
+    }
+    return (
+      <code className="text-xs text-cyan-400/80 font-mono mt-1 block truncate">
+        {code}
+      </code>
+    )
+  }
+
   return (
     <div className="px-4 py-3 hover:bg-white/5 transition-colors">
       <div className="flex items-start gap-3">
@@ -667,10 +725,8 @@ function EventRow({ event }: EventRowProps) {
               </span>
             )}
           </div>
-          <p className="text-sm text-white/80">{event.action}</p>
-          <code className="text-xs text-cyan-400/80 font-mono mt-1 block truncate">
-            {event.code}
-          </code>
+          {renderAction()}
+          {renderCode()}
         </div>
       </div>
     </div>
