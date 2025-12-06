@@ -139,60 +139,56 @@ export function useSimulation(
   }, [])
 
   // Protocol config overrides (for simulated mode)
+  // These preserve the current day position instead of resetting to day 0
   const setBorrowAPY = useCallback((apy: number) => {
-    pause()
     setState(prev => {
       const newState = initializeSimulation(prev.initialDeposit, {
         ...prev.marketConditions,
         borrowAPY: apy,
       })
-      return simulateToDay(newState, 0)
+      return simulateToDay(newState, prev.currentDay)
     })
-  }, [pause])
+  }, [])
 
   const setSupplyAPY = useCallback((apy: number) => {
-    pause()
     setState(prev => {
       const newState = initializeSimulation(prev.initialDeposit, {
         ...prev.marketConditions,
         supplyAPY: apy,
       })
-      return simulateToDay(newState, 0)
+      return simulateToDay(newState, prev.currentDay)
     })
-  }, [pause])
+  }, [])
 
   const setBasePrice = useCallback((price: number) => {
-    pause()
     setState(prev => {
       const newState = initializeSimulation(prev.initialDeposit, {
         ...prev.marketConditions,
         basePrice: price,
       })
-      return simulateToDay(newState, 0)
+      return simulateToDay(newState, prev.currentDay)
     })
-  }, [pause])
+  }, [])
 
   const setFcmMinHealth = useCallback((health: number) => {
-    pause()
     setState(prev => {
       const newState = initializeSimulation(prev.initialDeposit, {
         ...prev.marketConditions,
         fcmMinHealth: health,
       })
-      return simulateToDay(newState, 0)
+      return simulateToDay(newState, prev.currentDay)
     })
-  }, [pause])
+  }, [])
 
   const setFcmTargetHealth = useCallback((health: number) => {
-    pause()
     setState(prev => {
       const newState = initializeSimulation(prev.initialDeposit, {
         ...prev.marketConditions,
         fcmTargetHealth: health,
       })
-      return simulateToDay(newState, 0)
+      return simulateToDay(newState, prev.currentDay)
     })
-  }, [pause])
+  }, [])
 
   // Apply scenario preset
   const applyScenario = useCallback((scenario: Scenario) => {

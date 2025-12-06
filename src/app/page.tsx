@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   RefreshCw,
   ChevronRight,
+  ChevronDown,
   Play,
   Pause,
   RotateCcw,
@@ -33,7 +34,6 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { SimulationEvent } from '@/types'
 import { getTokenSupplyAPY } from '@/data/historicPrices'
 import { ComparisonSummary } from '@/components/ComparisonSummary'
-import { OutcomeBadge } from '@/components/OutcomeBadge'
 import { RebalanceToast } from '@/components/RebalanceToast'
 
 export default function SimulatorPage() {
@@ -70,17 +70,17 @@ export default function SimulatorPage() {
   const [showLiquidationFlash, setShowLiquidationFlash] = useState(false)
   const [showRebalanceToast, setShowRebalanceToast] = useState(false)
   const [lastRebalanceHealth, setLastRebalanceHealth] = useState({ before: 0, after: 0 })
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
-  // Detect liquidation and auto-pause
+  // Detect liquidation and show flash (no pause - let simulation continue to end)
   useEffect(() => {
     if (prevStatusRef.current !== 'liquidated' && state.traditional.status === 'liquidated') {
-      // Liquidation just happened!
-      pause()
+      // Liquidation just happened - flash but don't pause
       setShowLiquidationFlash(true)
       setTimeout(() => setShowLiquidationFlash(false), 1000)
     }
     prevStatusRef.current = state.traditional.status
-  }, [state.traditional.status, pause])
+  }, [state.traditional.status])
 
   // Detect rebalance and show toast
   useEffect(() => {
@@ -125,10 +125,10 @@ export default function SimulatorPage() {
         {/* Hero Section - Compelling CTA */}
         <div className="bg-gradient-to-b from-blue-500/5 via-blue-500/5 to-transparent rounded-2xl p-8 mb-8 text-center border border-white/5">
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-            What happens when the market crashes?
+            Sleep through the next Crash. Wake up whole.
           </h1>
           <p className="text-white/60 text-lg mb-6 max-w-xl mx-auto">
-            Watch two identical positions. Only one survives.
+            Watch how Traditional DeFi compares to the Flow Credit Market
           </p>
 
           <button
@@ -177,25 +177,6 @@ export default function SimulatorPage() {
                     style={{
                       borderColor: state.marketConditions.collateralToken === token.id ? token.color : undefined
                     }}
-                  >
-                    {token.symbol}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-white/60">Debt:</span>
-              <div className="flex gap-1">
-                {debtTokens.map((token) => (
-                  <button
-                    key={token.id}
-                    onClick={() => setDebtToken(token.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      state.marketConditions.debtToken === token.id
-                        ? "bg-white/10 text-white"
-                        : "text-white/50 hover:text-white hover:bg-white/5"
-                    )}
                   >
                     {token.symbol}
                   </button>
@@ -265,16 +246,28 @@ export default function SimulatorPage() {
             icon={<Clock className="w-4 h-4 text-white/60" />}
           />
           <StatCard
-            label={`${tokens.find(t => t.id === state.marketConditions.collateralToken)?.symbol || 'Token'} Price`}
+            label={state.marketConditions.dataMode === 'simulated'
+              ? 'Token Price'
+              : `${tokens.find(t => t.id === state.marketConditions.collateralToken)?.symbol || 'Token'} Price`}
             value={formatCurrencyCompact(state.flowPrice)}
-            subValue={formatPercent(priceChangePercent)}
+            subValue={state.marketConditions.dataMode === 'simulated'
+              ? `${formatPercent(priceChangePercent)} from $${state.marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice}`
+              : formatPercent(priceChangePercent)}
             subValueColor={priceChangePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}
             icon={priceChangePercent >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
           />
           <StatCard
             label="APY Rates"
-            value={formatPercent(getTokenSupplyAPY(state.marketConditions.collateralToken) * 100, 1)}
-            subValue={`${formatPercent(-PROTOCOL_CONFIG.borrowAPY * 100, 1)} borrow`}
+            value={formatPercent(
+              (state.marketConditions.dataMode === 'simulated' && state.marketConditions.supplyAPY !== undefined
+                ? state.marketConditions.supplyAPY
+                : getTokenSupplyAPY(state.marketConditions.collateralToken)) * 100, 1
+            )}
+            subValue={`${formatPercent(
+              -(state.marketConditions.dataMode === 'simulated' && state.marketConditions.borrowAPY !== undefined
+                ? state.marketConditions.borrowAPY
+                : PROTOCOL_CONFIG.borrowAPY) * 100, 1
+            )} borrow`}
             subValueColor="text-red-400"
             icon={<Zap className="w-4 h-4 text-white/60" />}
             tooltipContent={state.marketConditions.dataMode === 'historic'
@@ -307,13 +300,15 @@ export default function SimulatorPage() {
               )
               : (
                 <div className="text-white/60">
-                  Simulated APY rates for demonstration purposes.
+                  Custom APY rates. Adjust in Advanced Settings below.
                 </div>
               )}
           />
-          <OutcomeBadge
-            traditionalStatus={state.traditional.status}
-            returnsDifference={state.fcm.totalReturns - state.traditional.totalReturns}
+          <StatCard
+            label="Liq. Price"
+            value={formatCurrencyCompact(state.traditional.debtAmount / (state.traditional.collateralAmount * 0.8))}
+            subValue="Traditional"
+            icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}
           />
           <StatCard
             label="FCM Rebalances"
@@ -361,14 +356,14 @@ export default function SimulatorPage() {
           />
         </div>
 
-        {/* Comparison Summary - Shows when Traditional gets liquidated */}
-        {state.traditional.status === 'liquidated' && (
+        {/* Comparison Summary - Shows at end of simulation when traditional was liquidated */}
+        {state.currentDay === state.maxDay && state.traditional.status === 'liquidated' && (
           <ComparisonSummary
             traditionalReturns={state.traditional.totalReturns}
             fcmReturns={state.fcm.totalReturns}
             difference={state.fcm.totalReturns - state.traditional.totalReturns}
             rebalanceCount={state.fcm.rebalanceCount}
-            isVisible={state.traditional.status === 'liquidated'}
+            isVisible={state.currentDay === state.maxDay && state.traditional.status === 'liquidated'}
           />
         )}
 
@@ -465,7 +460,7 @@ export default function SimulatorPage() {
             </div>
 
             {/* Sliders */}
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-white/60">Price Change</span>
@@ -508,32 +503,24 @@ export default function SimulatorPage() {
                   ))}
                 </div>
               </div>
-
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-white/60">Rate Change</span>
-                  <span className="font-mono">{formatPercent(state.marketConditions.interestRateChange)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={-3}
-                  max={5}
-                  step={0.5}
-                  value={state.marketConditions.interestRateChange}
-                  onChange={(e) => setInterestRateChange(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
             </div>
 
-            {/* Advanced Settings */}
+            {/* Advanced Settings - Collapsible */}
             <div className="border-t border-white/10 pt-4 mt-4">
-              <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="flex items-center gap-2 w-full text-left hover:bg-white/5 -mx-2 px-2 py-1 rounded transition-colors"
+              >
                 <Settings2 className="w-4 h-4 text-white/60" />
                 <span className="text-sm font-medium text-white/80">Advanced Settings</span>
-              </div>
+                <ChevronDown className={cn(
+                  "w-4 h-4 text-white/40 ml-auto transition-transform",
+                  showAdvancedSettings && "rotate-180"
+                )} />
+              </button>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {showAdvancedSettings && (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                 {/* Base Token Price */}
                 <div>
                   <div className="flex justify-between text-sm mb-2">
@@ -619,6 +606,7 @@ export default function SimulatorPage() {
                   />
                 </div>
               </div>
+              )}
             </div>
           </div>
         )}
