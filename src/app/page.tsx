@@ -321,93 +321,95 @@ export default function SimulatorPage() {
           </div>
         </div>
 
-        {/* Market Controls */}
-        <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings2 className="w-4 h-4 text-white/60" />
-            <span className="font-medium">Market Scenario</span>
-          </div>
-
-          {/* Scenario Presets */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-            {scenarios.map((scenario) => (
-              <button
-                key={scenario.id}
-                onClick={() => applyScenario(scenario)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-sm font-medium transition-all border",
-                  state.marketConditions.priceChange === scenario.priceChange
-                    ? "bg-white/10 border-white/20 text-white"
-                    : "bg-transparent border-white/10 text-white/60 hover:border-white/20 hover:text-white"
-                )}
-              >
-                {scenario.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Sliders */}
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-white/60">Price Change</span>
-                <span className={cn(
-                  "font-mono",
-                  state.marketConditions.priceChange >= 0 ? "text-emerald-400" : "text-red-400"
-                )}>
-                  {formatPercent(state.marketConditions.priceChange, 0)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={-50}
-                max={100}
-                value={state.marketConditions.priceChange}
-                onChange={(e) => setPriceChange(Number(e.target.value))}
-                className="w-full accent-cyan-500"
-              />
+        {/* Market Controls - Only show for Simulated mode */}
+        {state.marketConditions.dataMode === 'simulated' && (
+          <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
+            <div className="flex items-center gap-2 mb-4">
+              <Settings2 className="w-4 h-4 text-white/60" />
+              <span className="font-medium">Market Scenario</span>
             </div>
 
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-white/60">Volatility</span>
-                <span className="font-mono capitalize">{state.marketConditions.volatility}</span>
-              </div>
-              <div className="flex gap-1">
-                {(['low', 'medium', 'high'] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setVolatility(v)}
-                    className={cn(
-                      "flex-1 py-1.5 rounded text-xs font-medium capitalize transition-all",
-                      state.marketConditions.volatility === v
-                        ? "bg-white/10 text-white"
-                        : "text-white/40 hover:text-white/60"
-                    )}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
+            {/* Scenario Presets */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+              {scenarios.map((scenario) => (
+                <button
+                  key={scenario.id}
+                  onClick={() => applyScenario(scenario)}
+                  className={cn(
+                    "px-3 py-2 rounded-lg text-sm font-medium transition-all border",
+                    state.marketConditions.priceChange === scenario.priceChange
+                      ? "bg-white/10 border-white/20 text-white"
+                      : "bg-transparent border-white/10 text-white/60 hover:border-white/20 hover:text-white"
+                  )}
+                >
+                  {scenario.name}
+                </button>
+              ))}
             </div>
 
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-white/60">Rate Change</span>
-                <span className="font-mono">{formatPercent(state.marketConditions.interestRateChange)}</span>
+            {/* Sliders */}
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-white/60">Price Change</span>
+                  <span className={cn(
+                    "font-mono",
+                    state.marketConditions.priceChange >= 0 ? "text-emerald-400" : "text-red-400"
+                  )}>
+                    {formatPercent(state.marketConditions.priceChange, 0)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={-50}
+                  max={100}
+                  value={state.marketConditions.priceChange}
+                  onChange={(e) => setPriceChange(Number(e.target.value))}
+                  className="w-full accent-cyan-500"
+                />
               </div>
-              <input
-                type="range"
-                min={-3}
-                max={5}
-                step={0.5}
-                value={state.marketConditions.interestRateChange}
-                onChange={(e) => setInterestRateChange(Number(e.target.value))}
-                className="w-full accent-cyan-500"
-              />
+
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-white/60">Volatility</span>
+                  <span className="font-mono capitalize">{state.marketConditions.volatility}</span>
+                </div>
+                <div className="flex gap-1">
+                  {(['low', 'medium', 'high'] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setVolatility(v)}
+                      className={cn(
+                        "flex-1 py-1.5 rounded text-xs font-medium capitalize transition-all",
+                        state.marketConditions.volatility === v
+                          ? "bg-white/10 text-white"
+                          : "text-white/40 hover:text-white/60"
+                      )}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-white/60">Rate Change</span>
+                  <span className="font-mono">{formatPercent(state.marketConditions.interestRateChange)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={-3}
+                  max={5}
+                  step={0.5}
+                  value={state.marketConditions.interestRateChange}
+                  onChange={(e) => setInterestRateChange(Number(e.target.value))}
+                  className="w-full accent-cyan-500"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Transaction Log */}
         <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
