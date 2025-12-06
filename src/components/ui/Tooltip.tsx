@@ -10,6 +10,7 @@ interface TooltipProps {
   position?: 'top' | 'bottom' | 'left' | 'right'
   delay?: number
   className?: string
+  interactive?: boolean // Allow hovering over tooltip content
 }
 
 export function Tooltip({
@@ -18,29 +19,53 @@ export function Tooltip({
   position = 'top',
   delay = 200,
   className,
+  interactive = true,
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const triggerRef = useRef<HTMLDivElement>(null)
+  const showTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const showTooltip = () => {
-    timeoutRef.current = setTimeout(() => {
-      setIsVisible(true)
-    }, delay)
+    // Clear any pending hide
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+    // Show after delay
+    if (!isVisible && !showTimeoutRef.current) {
+      showTimeoutRef.current = setTimeout(() => {
+        setIsVisible(true)
+        showTimeoutRef.current = null
+      }, delay)
+    }
   }
 
   const hideTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
+    // Clear any pending show
+    if (showTimeoutRef.current) {
+      clearTimeout(showTimeoutRef.current)
+      showTimeoutRef.current = null
     }
-    setIsVisible(false)
+    // Hide after small delay (allows moving to tooltip)
+    if (!hideTimeoutRef.current) {
+      hideTimeoutRef.current = setTimeout(() => {
+        setIsVisible(false)
+        hideTimeoutRef.current = null
+      }, interactive ? 150 : 0)
+    }
+  }
+
+  const cancelHide = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
   }
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
+      if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current)
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
     }
   }, [])
 
@@ -67,7 +92,6 @@ export function Tooltip({
 
   return (
     <div
-      ref={triggerRef}
       className="relative inline-block"
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
@@ -87,6 +111,8 @@ export function Tooltip({
               positionClasses[position],
               className
             )}
+            onMouseEnter={interactive ? cancelHide : undefined}
+            onMouseLeave={interactive ? hideTooltip : undefined}
           >
             {content}
             {/* Arrow */}

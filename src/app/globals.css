@@ -53,14 +53,14 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Timeline slider thumb */
+/* Timeline slider thumb - Blue primary color */
 .timeline-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #06b6d4);
+  background: #3B82F6;
   cursor: pointer;
   border: 2px solid #0a0b0d;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -69,7 +69,7 @@ body {
 
 .timeline-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.4);
 }
 
 .timeline-slider::-webkit-slider-thumb:active {
@@ -80,7 +80,7 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #06b6d4);
+  background: #3B82F6;
   cursor: pointer;
   border: 2px solid #0a0b0d;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -91,7 +91,7 @@ body {
   transform: scale(1.15);
 }
 
-/* Market sliders */
+/* Market sliders - Blue primary color */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -106,7 +106,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #06b6d4;
+  background: #3B82F6;
   cursor: pointer;
   border: none;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -116,7 +116,7 @@ input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #06b6d4;
+  background: #3B82F6;
   cursor: pointer;
   border: none;
 }
@@ -168,4 +168,14 @@ input[type="range"]::-moz-range-thumb {
 
 .animate-pulse-red {
   animation: pulse-red 2s ease-in-out infinite;
+}
+
+/* Attention-grabbing pulse for play button */
+@keyframes pulse-attention {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 0 16px rgba(59, 130, 246, 0); }
+}
+
+.animate-pulse-attention {
+  animation: pulse-attention 1.5s ease-out 3;
 }

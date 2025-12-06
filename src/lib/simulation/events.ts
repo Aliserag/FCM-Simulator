@@ -63,9 +63,9 @@ export function generateCreationEvents(
       day: 0,
       position: 'both',
       type: 'borrow',
-      action: 'Auto-borrowed to target health',
-      code: `autoBorrow() → ${initialBorrow.toFixed(2)} stablecoins issued to DrawDownSink`,
-      details: `Effective collateral: $${(collateralValueUSD * PROTOCOL_CONFIG.collateralFactor).toFixed(0)} / ${PROTOCOL_CONFIG.targetHealth} = $${initialBorrow.toFixed(0)} debt`,
+      action: 'Borrowed to target health',
+      code: `pool.borrow(amount: ${initialBorrow.toFixed(2)}) → stablecoins issued`,
+      details: `Borrowed at target health ${PROTOCOL_CONFIG.targetHealth}: $${initialBorrow.toFixed(0)} stablecoins`,
     },
   ]
 }

@@ -10,7 +10,7 @@ import {
   isLiquidatable,
   calculatePriceAtDay,
 } from './calculations'
-import { getTokenPrice } from '@/data/historicPrices'
+import { getTokenPrice, getTokenSupplyAPY } from '@/data/historicPrices'
 
 /**
  * Traditional Lending Simulation
@@ -107,10 +107,17 @@ export function simulateTraditionalPosition(
     PROTOCOL_CONFIG.targetHealth
   )
 
+  // Get supply APY from override or token-specific value
+  const tokenSupplyAPY = marketConditions?.supplyAPY
+    ?? (marketConditions?.collateralToken
+      ? getTokenSupplyAPY(marketConditions.collateralToken)
+      : PROTOCOL_CONFIG.supplyAPY)
+
   // Track state through simulation
   let collateralAmount = initialCollateral
   let debtAmount = initialBorrow
   let totalInterestPaid = 0
+  let totalYieldEarned = 0
   let liquidated = false
   let liquidationDay = 0
 
@@ -119,19 +126,25 @@ export function simulateTraditionalPosition(
     // Get the ACTUAL price at this day (historic or simulated)
     const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
-    // 1. Accrue daily interest on debt
+    // 1. Earn daily supply yield on collateral value
+    // Traditional lending DOES earn yield, but user must manually manage it
+    const collateralValueUSD = collateralAmount * dayPrice
+    const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
+    totalYieldEarned += dailyYield
+
+    // 2. Accrue daily interest on debt
     const dailyInterest = (debtAmount * borrowAPY) / 365
     debtAmount += dailyInterest
     totalInterestPaid += dailyInterest
 
-    // 2. Calculate current health factor
+    // 3. Calculate current health factor
     const currentHealth = calculateHealthFactor(
       collateralAmount,
       dayPrice,
       debtAmount
     )
 
-    // 3. Check for liquidation (traditional has no protection)
+    // 4. Check for liquidation (traditional has no protection)
     if (currentHealth < PROTOCOL_CONFIG.liquidationThreshold) {
       liquidated = true
       liquidationDay = d
@@ -172,7 +185,7 @@ export function simulateTraditionalPosition(
     status,
     totalReturns,
     accruedInterest: totalInterestPaid,
-    earnedYield: 0, // Traditional doesn't auto-apply yield to debt
+    earnedYield: totalYieldEarned, // Traditional earns yield but must manually manage it
     rebalanceCount: 0,
   }
 }

@@ -9,31 +9,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary - soft blue
+        // Primary accent - for interactive elements, CTAs, links
         primary: {
           DEFAULT: '#3B82F6',
-          light: '#EFF6FF',
-          dark: '#1D4ED8',
+          hover: '#60A5FA',
+          active: '#2563EB',
         },
-        // Health indicators
-        health: {
-          safe: '#10B981',
-          warning: '#F59E0B',
-          danger: '#EF4444',
-          liquidated: '#7C3AED',
-        },
-        // FCM accent (green - good)
-        fcm: {
-          DEFAULT: '#10B981',
-          light: '#D1FAE5',
-          dark: '#059669',
-        },
-        // Traditional accent (red - risky)
-        trad: {
-          DEFAULT: '#EF4444',
-          light: '#FEE2E2',
-          dark: '#DC2626',
-        },
+        // Semantic colors - 3 only (no purple)
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],

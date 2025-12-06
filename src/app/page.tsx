@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   TrendingDown,
   TrendingUp,
@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Timer,
   Settings2,
+  ExternalLink,
 } from 'lucide-react'
 import { useSimulation } from '@/hooks/useSimulation'
 import { cn, formatCurrency, formatCurrencyCompact, formatPercent, formatTokenAmount } from '@/lib/utils'
@@ -31,6 +32,9 @@ import { TOOLTIPS, PROTOCOL_CONFIG } from '@/lib/constants'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SimulationEvent } from '@/types'
 import { getTokenSupplyAPY } from '@/data/historicPrices'
+import { ComparisonSummary } from '@/components/ComparisonSummary'
+import { OutcomeBadge } from '@/components/OutcomeBadge'
+import { RebalanceToast } from '@/components/RebalanceToast'
 
 export default function SimulatorPage() {
   const {
@@ -54,10 +58,47 @@ export default function SimulatorPage() {
     setBasePrice,
     setFcmMinHealth,
     setFcmTargetHealth,
+    comparison,
     scenarios,
     tokens,
     debtTokens,
   } = useSimulation()
+
+  // Track previous status for liquidation detection
+  const prevStatusRef = useRef(state.traditional.status)
+  const prevRebalanceCountRef = useRef(state.fcm.rebalanceCount)
+  const [showLiquidationFlash, setShowLiquidationFlash] = useState(false)
+  const [showRebalanceToast, setShowRebalanceToast] = useState(false)
+  const [lastRebalanceHealth, setLastRebalanceHealth] = useState({ before: 0, after: 0 })
+
+  // Detect liquidation and auto-pause
+  useEffect(() => {
+    if (prevStatusRef.current !== 'liquidated' && state.traditional.status === 'liquidated') {
+      // Liquidation just happened!
+      pause()
+      setShowLiquidationFlash(true)
+      setTimeout(() => setShowLiquidationFlash(false), 1000)
+    }
+    prevStatusRef.current = state.traditional.status
+  }, [state.traditional.status, pause])
+
+  // Detect rebalance and show toast
+  useEffect(() => {
+    if (state.fcm.rebalanceCount > prevRebalanceCountRef.current) {
+      // Find the latest rebalance event
+      const rebalanceEvents = state.events.filter(e => e.type === 'rebalance')
+      const latestRebalance = rebalanceEvents[rebalanceEvents.length - 1]
+      if (latestRebalance?.healthBefore !== undefined && latestRebalance?.healthAfter !== undefined) {
+        setLastRebalanceHealth({
+          before: latestRebalance.healthBefore,
+          after: latestRebalance.healthAfter,
+        })
+      }
+      setShowRebalanceToast(true)
+      setTimeout(() => setShowRebalanceToast(false), 3000)
+    }
+    prevRebalanceCountRef.current = state.fcm.rebalanceCount
+  }, [state.fcm.rebalanceCount, state.events])
 
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,11 +111,6 @@ export default function SimulatorPage() {
     return ((state.flowPrice - state.baseFlowPrice) / state.baseFlowPrice) * 100
   }, [state.flowPrice, state.baseFlowPrice])
 
-  const liquidationPrice = useMemo(() => {
-    if (state.traditional.collateralAmount <= 0) return 0
-    return (state.traditional.debtAmount * 1.0) / (state.traditional.collateralAmount * 0.8)
-  }, [state.traditional])
-
   return (
     <div className="min-h-screen bg-[#0a0b0d] text-white">
       {/* Header */}
@@ -86,11 +122,39 @@ export default function SimulatorPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Title Section */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Position Comparison</h1>
-          <p className="text-white/50 text-sm mt-1">
-            Traditional lending vs FCM with automatic rebalancing
+        {/* Hero Section - Compelling CTA */}
+        <div className="bg-gradient-to-b from-blue-500/5 via-blue-500/5 to-transparent rounded-2xl p-8 mb-8 text-center border border-white/5">
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3">
+            What happens when the market crashes?
+          </h1>
+          <p className="text-white/60 text-lg mb-6 max-w-xl mx-auto">
+            Watch two identical positions. Only one survives.
+          </p>
+
+          <button
+            onClick={isPlaying ? pause : play}
+            className={cn(
+              "inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold text-lg transition-all",
+              isPlaying
+                ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                : "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 animate-pulse-attention"
+            )}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-6 h-6" />
+                Pause Simulation
+              </>
+            ) : (
+              <>
+                <Play className="w-6 h-6" />
+                Start Simulation
+              </>
+            )}
+          </button>
+
+          <p className="text-white/40 text-sm mt-4">
+            Using real 2020 prices · COVID crash · BTC & ETH
           </p>
         </div>
 
@@ -198,7 +262,7 @@ export default function SimulatorPage() {
             label="Day"
             value={state.currentDay.toString()}
             subValue={`/ ${state.maxDay}`}
-            icon={<Clock className="w-4 h-4" />}
+            icon={<Clock className="w-4 h-4 text-white/60" />}
           />
           <StatCard
             label={`${tokens.find(t => t.id === state.marketConditions.collateralToken)?.symbol || 'Token'} Price`}
@@ -209,22 +273,53 @@ export default function SimulatorPage() {
           />
           <StatCard
             label="APY Rates"
-            value={`+${formatPercent(getTokenSupplyAPY(state.marketConditions.collateralToken) * 100, 1)}`}
-            subValue={`-${formatPercent(PROTOCOL_CONFIG.borrowAPY * 100, 1)} borrow`}
+            value={formatPercent(getTokenSupplyAPY(state.marketConditions.collateralToken) * 100, 1)}
+            subValue={`${formatPercent(-PROTOCOL_CONFIG.borrowAPY * 100, 1)} borrow`}
             subValueColor="text-red-400"
-            icon={<Zap className="w-4 h-4 text-emerald-400" />}
+            icon={<Zap className="w-4 h-4 text-white/60" />}
+            tooltipContent={state.marketConditions.dataMode === 'historic'
+              ? (
+                <div className="space-y-2">
+                  <div>
+                    <div className="font-semibold text-emerald-400">Supply APY</div>
+                    <div className="text-white/60">Based on 2020 Compound/Aave rates:</div>
+                    <ul className="list-disc list-inside text-white/40 ml-1">
+                      <li>BTC: ~2% (varied 0.1-5%)</li>
+                      <li>ETH: ~3% (varied 0.5-10%)</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-red-400">Borrow APY</div>
+                    <div className="text-white/60">5% average DeFi lending rate</div>
+                  </div>
+                  <div className="text-white/40 text-[10px] pt-1 border-t border-white/10">
+                    Source:{' '}
+                    <a
+                      href="https://www.theblock.co/data/decentralized-finance/cryptocurrency-lending"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline"
+                    >
+                      The Block DeFi Lending Data
+                    </a>
+                  </div>
+                </div>
+              )
+              : (
+                <div className="text-white/60">
+                  Simulated APY rates for demonstration purposes.
+                </div>
+              )}
           />
-          <StatCard
-            label="Liq. Price"
-            value={formatCurrencyCompact(liquidationPrice)}
-            subValue="Traditional"
-            icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}
+          <OutcomeBadge
+            traditionalStatus={state.traditional.status}
+            returnsDifference={state.fcm.totalReturns - state.traditional.totalReturns}
           />
           <StatCard
             label="FCM Rebalances"
             value={state.fcm.rebalanceCount.toString()}
             subValue="Auto-protected"
-            icon={<RefreshCw className="w-4 h-4 text-cyan-400" />}
+            icon={<RefreshCw className="w-4 h-4 text-blue-400" />}
           />
         </div>
 
@@ -242,6 +337,7 @@ export default function SimulatorPage() {
             returns={state.traditional.totalReturns}
             status={state.traditional.status}
             interestPaid={state.traditional.accruedInterest}
+            earnedYield={state.traditional.earnedYield}
             tokenSymbol={tokens.find(t => t.id === state.marketConditions.collateralToken)?.symbol || 'TOKEN'}
             debtSymbol={debtTokens.find(t => t.id === state.marketConditions.debtToken)?.symbol || 'USD'}
           />
@@ -265,6 +361,17 @@ export default function SimulatorPage() {
           />
         </div>
 
+        {/* Comparison Summary - Shows when Traditional gets liquidated */}
+        {state.traditional.status === 'liquidated' && (
+          <ComparisonSummary
+            traditionalReturns={state.traditional.totalReturns}
+            fcmReturns={state.fcm.totalReturns}
+            difference={state.fcm.totalReturns - state.traditional.totalReturns}
+            rebalanceCount={state.fcm.rebalanceCount}
+            isVisible={state.traditional.status === 'liquidated'}
+          />
+        )}
+
         {/* Timeline Control */}
         <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
           <div className="flex items-center justify-between mb-4">
@@ -273,7 +380,7 @@ export default function SimulatorPage() {
                 onClick={isPlaying ? pause : play}
                 className={cn(
                   "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
-                  isPlaying ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"
+                  isPlaying ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
                 )}
               >
                 {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
@@ -287,18 +394,23 @@ export default function SimulatorPage() {
             </div>
 
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-              {[5, 10, 25, 50].map((speed) => (
+              {[
+                { label: '1x', value: 10 },
+                { label: '2x', value: 20 },
+                { label: '3x', value: 30 },
+                { label: '4x', value: 40 },
+              ].map((speed) => (
                 <button
-                  key={speed}
-                  onClick={() => setPlaySpeed(speed)}
+                  key={speed.value}
+                  onClick={() => setPlaySpeed(speed.value)}
                   className={cn(
                     "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                    playSpeed === speed
+                    playSpeed === speed.value
                       ? "bg-white/10 text-white"
                       : "text-white/40 hover:text-white/60"
                   )}
                 >
-                  {speed}x
+                  {speed.label}
                 </button>
               ))}
             </div>
@@ -314,7 +426,7 @@ export default function SimulatorPage() {
               onChange={handleSliderChange}
               className="timeline-slider w-full h-2 rounded-full appearance-none cursor-pointer bg-white/10"
               style={{
-                background: `linear-gradient(to right, #10b981 0%, #06b6d4 ${(state.currentDay / state.maxDay) * 100}%, rgba(255,255,255,0.1) ${(state.currentDay / state.maxDay) * 100}%)`
+                background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${(state.currentDay / state.maxDay) * 100}%, rgba(255,255,255,0.1) ${(state.currentDay / state.maxDay) * 100}%)`
               }}
             />
           </div>
@@ -370,7 +482,7 @@ export default function SimulatorPage() {
                   max={100}
                   value={state.marketConditions.priceChange}
                   onChange={(e) => setPriceChange(Number(e.target.value))}
-                  className="w-full accent-cyan-500"
+                  className="w-full"
                 />
               </div>
 
@@ -409,7 +521,7 @@ export default function SimulatorPage() {
                   step={0.5}
                   value={state.marketConditions.interestRateChange}
                   onChange={(e) => setInterestRateChange(Number(e.target.value))}
-                  className="w-full accent-cyan-500"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -435,7 +547,7 @@ export default function SimulatorPage() {
                     step={1}
                     value={state.marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice}
                     onChange={(e) => setBasePrice(Number(e.target.value))}
-                    className="w-full accent-cyan-500"
+                    className="w-full"
                   />
                 </div>
 
@@ -452,7 +564,7 @@ export default function SimulatorPage() {
                     step={0.5}
                     value={(state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY) * 100}
                     onChange={(e) => setBorrowAPY(Number(e.target.value) / 100)}
-                    className="w-full accent-cyan-500"
+                    className="w-full"
                   />
                 </div>
 
@@ -469,7 +581,7 @@ export default function SimulatorPage() {
                     step={0.5}
                     value={(state.marketConditions.supplyAPY ?? PROTOCOL_CONFIG.supplyAPY) * 100}
                     onChange={(e) => setSupplyAPY(Number(e.target.value) / 100)}
-                    className="w-full accent-cyan-500"
+                    className="w-full"
                   />
                 </div>
 
@@ -486,7 +598,7 @@ export default function SimulatorPage() {
                     step={0.05}
                     value={state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth}
                     onChange={(e) => setFcmMinHealth(Number(e.target.value))}
-                    className="w-full accent-emerald-500"
+                    className="w-full"
                   />
                 </div>
 
@@ -503,7 +615,7 @@ export default function SimulatorPage() {
                     step={0.05}
                     value={state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth}
                     onChange={(e) => setFcmTargetHealth(Number(e.target.value))}
-                    className="w-full accent-emerald-500"
+                    className="w-full"
                   />
                 </div>
               </div>
@@ -537,9 +649,35 @@ export default function SimulatorPage() {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-white/10 text-center text-sm text-white/40">
           <p>Educational simulation of Flow Credit Market</p>
-          <p className="mt-1">Simulated Data - Not Financial Advice</p>
+          <div className="flex items-center justify-center gap-4 mt-2">
+            <a
+              href="https://developers.flow.com/blockchain-development-tutorials/forte/scheduled-transactions-introduction"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cyan-400 hover:text-cyan-300"
+            >
+              Flow Docs
+            </a>
+            <span className="text-white/20">·</span>
+            <a
+              href="https://github.com/onflow/FlowCreditMarket"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/40 hover:text-white/60"
+            >
+              GitHub
+            </a>
+          </div>
+          <p className="mt-2 text-white/30 text-xs">Not Financial Advice</p>
         </div>
       </main>
+
+      {/* Rebalance Toast Notification */}
+      <RebalanceToast
+        visible={showRebalanceToast}
+        healthBefore={lastRebalanceHealth.before}
+        healthAfter={lastRebalanceHealth.after}
+      />
     </div>
   )
 }
@@ -552,10 +690,11 @@ interface StatCardProps {
   subValue?: string
   subValueColor?: string
   icon?: React.ReactNode
+  tooltipContent?: React.ReactNode
 }
 
-function StatCard({ label, value, subValue, subValueColor, icon }: StatCardProps) {
-  return (
+function StatCard({ label, value, subValue, subValueColor, icon, tooltipContent }: StatCardProps) {
+  const cardContent = (
     <div className="bg-white/5 rounded-xl p-3 border border-white/10">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-white/50">{label}</span>
@@ -569,6 +708,16 @@ function StatCard({ label, value, subValue, subValueColor, icon }: StatCardProps
       </div>
     </div>
   )
+
+  if (tooltipContent) {
+    return (
+      <Tooltip content={<div className="text-xs max-w-xs">{tooltipContent}</div>} position="bottom">
+        {cardContent}
+      </Tooltip>
+    )
+  }
+
+  return cardContent
 }
 
 interface PositionPanelProps {
@@ -607,26 +756,26 @@ function PositionPanel({
   const isFCM = type === 'fcm'
   const isLiquidated = status === 'liquidated'
 
+  // Simplified health color - no purple, only 3 semantic colors
   const getHealthColor = () => {
-    if (isLiquidated) return 'text-purple-400'
-    if (healthFactor >= 1.4) return 'text-emerald-400'
-    if (healthFactor >= 1.2) return 'text-amber-400'
-    return 'text-red-400'
+    if (isLiquidated || healthFactor < 1.2) return 'text-red-400'
+    if (healthFactor < 1.4) return 'text-amber-400'
+    return 'text-emerald-400'
   }
 
   const getHealthBg = () => {
-    if (isLiquidated) return 'bg-purple-500/10'
-    if (healthFactor >= 1.4) return 'bg-emerald-500/10'
-    if (healthFactor >= 1.2) return 'bg-amber-500/10'
-    return 'bg-red-500/10'
+    if (isLiquidated || healthFactor < 1.2) return 'bg-red-500/10'
+    if (healthFactor < 1.4) return 'bg-amber-500/10'
+    return 'bg-emerald-500/10'
   }
 
   const StatusIcon = isLiquidated ? Skull : healthFactor >= 1.4 ? CheckCircle2 : AlertCircle
 
   return (
     <div className={cn(
-      "rounded-xl border p-4 transition-all",
-      isFCM ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20",
+      "rounded-xl p-4 transition-all bg-white/5 border border-white/10",
+      // FCM gets subtle emerald left border accent
+      isFCM && "border-l-2 border-l-emerald-500/40",
       isLiquidated && !isFCM && "animate-pulse"
     )}>
       {/* Header */}
@@ -634,9 +783,9 @@ function PositionPanel({
         <div>
           <div className="flex items-center gap-2">
             {isFCM ? (
-              <Shield className="w-4 h-4 text-emerald-400" />
+              <Shield className="w-4 h-4 text-white/60" />
             ) : (
-              <Wallet className="w-4 h-4 text-red-400" />
+              <Wallet className="w-4 h-4 text-white/60" />
             )}
             <span className="font-semibold">{title}</span>
           </div>
@@ -644,9 +793,9 @@ function PositionPanel({
         </div>
         <div className={cn(
           "px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1",
-          isLiquidated ? "bg-purple-500/20 text-purple-300" :
-          status === 'warning' ? "bg-amber-500/20 text-amber-300" :
-          "bg-emerald-500/20 text-emerald-300"
+          isLiquidated ? "bg-red-500/20 text-red-400" :
+          status === 'warning' ? "bg-amber-500/20 text-amber-400" :
+          "bg-emerald-500/20 text-emerald-400"
         )}>
           <StatusIcon className="w-3 h-3" />
           {isLiquidated ? 'Liquidated' : status === 'warning' ? 'At Risk' : 'Healthy'}
@@ -665,14 +814,13 @@ function PositionPanel({
           <div
             className={cn(
               "h-full rounded-full transition-all",
-              isLiquidated ? "bg-purple-500" :
-              healthFactor >= 1.4 ? "bg-emerald-500" :
-              healthFactor >= 1.2 ? "bg-amber-500" : "bg-red-500"
+              isLiquidated || healthFactor < 1.2 ? "bg-red-500" :
+              healthFactor < 1.4 ? "bg-amber-500" : "bg-emerald-500"
             )}
             style={{ width: `${Math.min((healthFactor / 2) * 100, 100)}%` }}
           />
         </div>
-        <div className="flex justify-between mt-1 text-xs text-white/30">
+        <div className="flex justify-between mt-1 text-xs text-white/40">
           <span>0</span>
           <span>1.0</span>
           <span>2.0</span>
@@ -696,15 +844,15 @@ function PositionPanel({
           value={formatCurrencyCompact(interestPaid)}
           valueColor="text-red-400"
         />
-        {isFCM && earnedYield !== undefined && earnedYield > 0 && (
+        {earnedYield !== undefined && earnedYield > 0 && (
           <MetricRow
             label="Yield Earned"
             value={`+${formatCurrencyCompact(earnedYield)}`}
-            subValue="Applied to debt"
+            subValue={isFCM ? "Auto-applied to debt" : "Manual management"}
             valueColor="text-emerald-400"
           />
         )}
-        {isFCM && earnedYield !== undefined && (
+        {earnedYield !== undefined && (
           <MetricRow
             label="Net Interest"
             value={formatCurrencyCompact(earnedYield - interestPaid)}
@@ -720,7 +868,7 @@ function PositionPanel({
           />
         </div>
         {isFCM && rebalances !== undefined && rebalances > 0 && (
-          <div className="flex items-center gap-2 text-xs text-cyan-400 mt-2">
+          <div className="flex items-center gap-2 text-xs text-blue-400 mt-2">
             <RefreshCw className="w-3 h-3" />
             <span>{rebalances} auto-rebalance{rebalances > 1 ? 's' : ''} performed</span>
           </div>
@@ -769,7 +917,7 @@ function EventRow({ event }: EventRowProps) {
     switch (event.type) {
       case 'create': return <Wallet className="w-4 h-4" />
       case 'borrow': return <ArrowDownRight className="w-4 h-4" />
-      case 'rebalance': return <RefreshCw className="w-4 h-4 text-cyan-400" />
+      case 'rebalance': return <RefreshCw className="w-4 h-4 text-blue-400" />
       case 'liquidation': return <Skull className="w-4 h-4 text-red-400" />
       case 'scheduled': return <Timer className="w-4 h-4 text-amber-400" />
       case 'warning': return <AlertTriangle className="w-4 h-4 text-amber-400" />
@@ -780,7 +928,7 @@ function EventRow({ event }: EventRowProps) {
   const getPositionColor = () => {
     if (event.position === 'fcm') return 'text-emerald-400'
     if (event.position === 'traditional') return 'text-red-400'
-    return 'text-cyan-400'
+    return 'text-blue-400'
   }
 
   // Render action text with hyperlinks for scheduled transactions
@@ -791,13 +939,13 @@ function EventRow({ event }: EventRowProps) {
           href={DOCS_LINKS.scheduledTxn}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-amber-400 hover:text-amber-300 underline decoration-amber-400/50 hover:decoration-amber-300"
+          className="text-sm text-amber-400 hover:text-amber-300 underline decoration-amber-400/40 hover:decoration-amber-300"
         >
           {event.action}
         </a>
       )
     }
-    return <span className="text-sm text-white/80">{event.action}</span>
+    return <span className="text-sm text-white/60">{event.action}</span>
   }
 
   // Render code with hyperlinks for DeFi actions (TopUpSource, Sink, etc.)
@@ -810,7 +958,7 @@ function EventRow({ event }: EventRowProps) {
           href={DOCS_LINKS.defiActions}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-purple-400 hover:text-purple-300 font-mono mt-1 block truncate underline decoration-purple-400/50 hover:decoration-purple-300"
+          className="text-xs text-blue-400 hover:text-blue-300 font-mono mt-1 block truncate underline decoration-blue-400/40 hover:decoration-blue-300"
         >
           {code}
         </a>
@@ -823,14 +971,14 @@ function EventRow({ event }: EventRowProps) {
           href={DOCS_LINKS.scheduledTxn}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-amber-400 hover:text-amber-300 font-mono mt-1 block truncate underline decoration-amber-400/50 hover:decoration-amber-300"
+          className="text-xs text-amber-400 hover:text-amber-300 font-mono mt-1 block truncate underline decoration-amber-400/40 hover:decoration-amber-300"
         >
           {code}
         </a>
       )
     }
     return (
-      <code className="text-xs text-cyan-400/80 font-mono mt-1 block truncate">
+      <code className="text-xs text-blue-400/60 font-mono mt-1 block truncate">
         {code}
       </code>
     )
