@@ -27,8 +27,9 @@ import {
 } from 'lucide-react'
 import { useSimulation } from '@/hooks/useSimulation'
 import { cn, formatCurrency, formatCurrencyCompact, formatPercent, formatTokenAmount } from '@/lib/utils'
-import { TOOLTIPS } from '@/lib/constants'
+import { TOOLTIPS, PROTOCOL_CONFIG } from '@/lib/constants'
 import { SimulationEvent } from '@/types'
+import { getTokenSupplyAPY } from '@/data/historicPrices'
 
 export default function SimulatorPage() {
   const {
@@ -162,7 +163,7 @@ export default function SimulatorPage() {
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <StatCard
             label="Day"
             value={state.currentDay.toString()}
@@ -175,6 +176,13 @@ export default function SimulatorPage() {
             subValue={formatPercent(priceChangePercent)}
             subValueColor={priceChangePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}
             icon={priceChangePercent >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
+          />
+          <StatCard
+            label="APY Rates"
+            value={`+${formatPercent(getTokenSupplyAPY(state.marketConditions.collateralToken) * 100, 1)}`}
+            subValue={`-${formatPercent(PROTOCOL_CONFIG.borrowAPY * 100, 1)} borrow`}
+            subValueColor="text-red-400"
+            icon={<Zap className="w-4 h-4 text-emerald-400" />}
           />
           <StatCard
             label="Liq. Price"
@@ -220,6 +228,7 @@ export default function SimulatorPage() {
             returns={state.fcm.totalReturns}
             status={state.fcm.status}
             interestPaid={state.fcm.accruedInterest}
+            earnedYield={state.fcm.earnedYield}
             rebalances={state.fcm.rebalanceCount}
             tokenSymbol={tokens.find(t => t.id === state.marketConditions.collateralToken)?.symbol || 'TOKEN'}
             debtSymbol={debtTokens.find(t => t.id === state.marketConditions.debtToken)?.symbol || 'USD'}
@@ -446,6 +455,7 @@ interface PositionPanelProps {
   returns: number
   status: 'healthy' | 'warning' | 'liquidated'
   interestPaid: number
+  earnedYield?: number
   rebalances?: number
   tokenSymbol: string
   debtSymbol: string
@@ -462,6 +472,7 @@ function PositionPanel({
   returns,
   status,
   interestPaid,
+  earnedYield,
   rebalances,
   tokenSymbol,
   debtSymbol,
@@ -558,6 +569,21 @@ function PositionPanel({
           value={formatCurrencyCompact(interestPaid)}
           valueColor="text-red-400"
         />
+        {isFCM && earnedYield !== undefined && earnedYield > 0 && (
+          <MetricRow
+            label="Yield Earned"
+            value={`+${formatCurrencyCompact(earnedYield)}`}
+            subValue="Applied to debt"
+            valueColor="text-emerald-400"
+          />
+        )}
+        {isFCM && earnedYield !== undefined && (
+          <MetricRow
+            label="Net Interest"
+            value={formatCurrencyCompact(earnedYield - interestPaid)}
+            valueColor={earnedYield - interestPaid >= 0 ? "text-emerald-400" : "text-amber-400"}
+          />
+        )}
         <div className="border-t border-white/10 pt-2 mt-2">
           <MetricRow
             label="Net P&L"
