@@ -29,7 +29,7 @@ export interface TokenInfo {
 
 // Generate price data based on actual 2020 price movements
 // COVID crash in March followed by V-shaped recovery to all-time highs
-function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'stable'): number[] {
+function generatePriceData(pattern: 'btc' | 'eth' | 'stable'): number[] {
   const prices: number[] = []
 
   for (let day = 0; day <= 365; day++) {
@@ -84,29 +84,6 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'stable'): number[] 
         }
         break
 
-      case 'sol':
-        // SOL 2020: Launched March 2020, volatile first year (~4x gain)
-        if (progress < 0.15) {
-          // Jan-Feb: Pre-launch (stable at base)
-          multiplier = 1.0 + Math.sin(day * 0.3) * 0.02
-        } else if (progress < 0.22) {
-          // March: Launch period with initial volatility
-          const launchProgress = (progress - 0.15) / 0.07
-          multiplier = 1.0 - launchProgress * 0.4 + Math.sin(day * 0.6) * 0.05
-        } else if (progress < 0.5) {
-          // April-June: Early growth phase
-          const growthProgress = (progress - 0.22) / 0.28
-          multiplier = 0.6 + growthProgress * 0.8 + Math.sin(day * 0.25) * 0.06
-        } else if (progress < 0.75) {
-          // July-Sept: Consolidation
-          multiplier = 1.4 + (progress - 0.5) * 0.8 + Math.sin(day * 0.2) * 0.08
-        } else {
-          // Oct-Dec: Bull run
-          const bullProgress = (progress - 0.75) / 0.25
-          multiplier = 1.6 + bullProgress * 2.4 + Math.sin(day * 0.3) * 0.08
-        }
-        break
-
       case 'stable':
         multiplier = 1 + Math.sin(day * 0.1) * 0.001
         break
@@ -122,7 +99,8 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'stable'): number[] 
 }
 
 // Actual prices as of January 1, 2020 (from CoinGecko)
-// Supply APY based on 2020 DeFi lending averages
+// Supply APY based on 2020 DeFi lending rates (Compound/Aave)
+// Note: Only BTC and ETH included as they had established DeFi lending markets in 2020
 export const TOKENS: TokenInfo[] = [
   {
     id: 'btc',
@@ -131,7 +109,7 @@ export const TOKENS: TokenInfo[] = [
     color: '#F7931A',
     basePrice: 7200,       // $7,200 on January 1, 2020
     collateralFactor: 0.75,
-    supplyAPY: 0.02,       // 2% - early DeFi yields
+    supplyAPY: 0.02,       // ~2% average - WBTC on Compound/Aave (varied 0.1-5% through year)
     priceMultipliers: generatePriceData('btc'),
   },
   {
@@ -141,18 +119,8 @@ export const TOKENS: TokenInfo[] = [
     color: '#627EEA',
     basePrice: 130,        // $130 on January 1, 2020
     collateralFactor: 0.80,
-    supplyAPY: 0.03,       // 3% - Compound/Aave yields in 2020
+    supplyAPY: 0.03,       // ~3% average - ETH on Compound/Aave (varied 0.5-10% through year)
     priceMultipliers: generatePriceData('eth'),
-  },
-  {
-    id: 'sol',
-    symbol: 'SOL',
-    name: 'Solana',
-    color: '#00FFA3',
-    basePrice: 0.22,       // $0.22 at April 2020 launch
-    collateralFactor: 0.70,
-    supplyAPY: 0.08,       // 8% - high early yields
-    priceMultipliers: generatePriceData('sol'),
   },
 ]
 
