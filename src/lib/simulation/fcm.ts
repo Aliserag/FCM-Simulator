@@ -11,7 +11,7 @@ import {
   isLiquidatable,
   calculatePriceAtDay,
 } from './calculations'
-import { getTokenPrice } from '@/data/historicPrices'
+import { getTokenPrice, getTokenSupplyAPY } from '@/data/historicPrices'
 
 /**
  * FCM (Flow Credit Market) Lending Simulation
@@ -140,14 +140,20 @@ export function simulateFCMPosition(
     accumulatedYield: 0,
   }
 
+  // Get token-specific supply APY (based on 2022 DeFi yields)
+  const tokenSupplyAPY = marketConditions?.collateralToken
+    ? getTokenSupplyAPY(marketConditions.collateralToken)
+    : PROTOCOL_CONFIG.supplyAPY
+
   // Simulate day by day - FCM monitors and rebalances continuously
   for (let d = 1; d <= day; d++) {
     // Get the ACTUAL price at this day (historic or simulated)
     const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
     // 1. Earn daily supply yield on collateral value (deposited collateral earns interest)
+    // Uses token-specific APY: BTC 1.5%, ETH 2.5%, SOL 5%, AVAX 4%
     const collateralValueUSD = state.collateralAmount * dayPrice
-    const dailyYield = (collateralValueUSD * PROTOCOL_CONFIG.supplyAPY) / 365
+    const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
     state.accumulatedYield += dailyYield
     state.totalYieldEarned += dailyYield
 

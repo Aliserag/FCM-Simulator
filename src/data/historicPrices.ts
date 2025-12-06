@@ -13,6 +13,8 @@ export interface TokenInfo {
   basePrice: number
   // Collateral factor (LTV) - varies by asset volatility
   collateralFactor: number
+  // Supply APY - lending/staking yield (based on 2022 averages)
+  supplyAPY: number
   // Price data for 365 days (normalized to start at 1.0)
   priceMultipliers: number[]
 }
@@ -135,6 +137,7 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'avax' | 'stable'): 
 }
 
 // Current prices as of December 2025
+// Supply APY based on 2022 DeFi lending/staking averages
 export const TOKENS: TokenInfo[] = [
   {
     id: 'btc',
@@ -143,6 +146,7 @@ export const TOKENS: TokenInfo[] = [
     color: '#F7931A',
     basePrice: 97000,      // ~$97k December 2025
     collateralFactor: 0.75,
+    supplyAPY: 0.015,      // 1.5% - low utilization on Aave/Compound
     priceMultipliers: generatePriceData('btc'),
   },
   {
@@ -152,6 +156,7 @@ export const TOKENS: TokenInfo[] = [
     color: '#627EEA',
     basePrice: 3900,       // ~$3.9k December 2025
     collateralFactor: 0.80,
+    supplyAPY: 0.025,      // 2.5% - lending + staking rewards
     priceMultipliers: generatePriceData('eth'),
   },
   {
@@ -161,6 +166,7 @@ export const TOKENS: TokenInfo[] = [
     color: '#00FFA3',
     basePrice: 230,        // ~$230 December 2025
     collateralFactor: 0.70,
+    supplyAPY: 0.05,       // 5% - higher yields on Solana DeFi
     priceMultipliers: generatePriceData('sol'),
   },
   {
@@ -170,6 +176,7 @@ export const TOKENS: TokenInfo[] = [
     color: '#E84142',
     basePrice: 52,         // ~$52 December 2025
     collateralFactor: 0.65,
+    supplyAPY: 0.04,       // 4% - competitive Avalanche yields
     priceMultipliers: generatePriceData('avax'),
   },
 ]
@@ -197,6 +204,14 @@ export function getTokenPrice(tokenId: string, day: number): number {
 export function getTokenCollateralFactor(tokenId: string): number {
   const token = TOKENS.find(t => t.id === tokenId)
   return token?.collateralFactor ?? 0.80
+}
+
+/**
+ * Get supply APY for a token (lending/staking yield)
+ */
+export function getTokenSupplyAPY(tokenId: string): number {
+  const token = TOKENS.find(t => t.id === tokenId)
+  return token?.supplyAPY ?? 0.02 // Default 2% if not found
 }
 
 /**
