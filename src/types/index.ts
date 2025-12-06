@@ -28,7 +28,7 @@ export interface SimulationEvent {
 
 // Market conditions (user adjustable)
 export interface MarketConditions {
-  priceChange: number           // % change in FLOW price (-50 to +100)
+  priceChange: number           // % change in token price (-99 to +10000)
   volatility: 'low' | 'medium' | 'high'
   interestRateChange: number    // % adjustment to base rate
   dataMode: 'simulated' | 'historic'  // Use simulated or real historic data
@@ -40,6 +40,7 @@ export interface MarketConditions {
   basePrice?: number            // Override base token price
   fcmMinHealth?: number         // FCM rebalance trigger threshold
   fcmTargetHealth?: number      // FCM rebalance restore target
+  collateralFactor?: number     // Override LTV (0.5-0.9)
 }
 
 // Full simulation state

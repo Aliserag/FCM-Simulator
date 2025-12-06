@@ -10,8 +10,8 @@ import {
   getComparisonSummary,
   getDisplayMetrics,
 } from '@/lib/simulation/engine'
-import { SCENARIOS, PROTOCOL_CONFIG, SIMULATION_DEFAULTS } from '@/lib/constants'
-import { TOKENS, DEBT_TOKENS, getToken, getHistoricTokens, getSimulatedTokens } from '@/data/historicPrices'
+import { SCENARIOS, PROTOCOL_CONFIG, SIMULATION_DEFAULTS, DEPOSIT_PRESETS } from '@/lib/constants'
+import { TOKENS, DEBT_TOKENS, getToken, getHistoricTokens, getSimulatedTokens, getDebtToken, getDebtTokenBorrowRate } from '@/data/historicPrices'
 
 interface UseSimulationReturn {
   // State
@@ -41,6 +41,8 @@ interface UseSimulationReturn {
   setBasePrice: (price: number) => void
   setFcmMinHealth: (health: number) => void
   setFcmTargetHealth: (health: number) => void
+  setInitialDeposit: (amount: number) => void
+  setCollateralFactor: (factor: number) => void
 
   // Computed
   comparison: ReturnType<typeof getComparisonSummary>
@@ -52,6 +54,10 @@ interface UseSimulationReturn {
   debtTokens: typeof DEBT_TOKENS
   getHistoricTokens: typeof getHistoricTokens
   getSimulatedTokens: typeof getSimulatedTokens
+  getDebtToken: typeof getDebtToken
+
+  // Constants
+  depositPresets: typeof DEPOSIT_PRESETS
 }
 
 export function useSimulation(
@@ -93,6 +99,8 @@ export function useSimulation(
       cancelAnimationFrame(animationRef.current)
       animationRef.current = null
     }
+    // Reset timing ref so next play starts fresh
+    lastTimeRef.current = 0
   }, [])
 
   // Reset simulation
@@ -142,8 +150,18 @@ export function useSimulation(
   }, [pause])
 
   const setDebtToken = useCallback((tokenId: string) => {
-    setState(prev => updateMarketConditions(prev, { debtToken: tokenId }))
-  }, [])
+    pause()
+    setState(prev => {
+      // Get borrow rate for the new debt token
+      const borrowRate = getDebtTokenBorrowRate(tokenId)
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        debtToken: tokenId,
+        borrowAPY: borrowRate,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
 
   // Protocol config overrides (for simulated mode)
   // These preserve the current day position instead of resetting to day 0
@@ -196,6 +214,26 @@ export function useSimulation(
       return simulateToDay(newState, prev.currentDay)
     })
   }, [])
+
+  const setCollateralFactor = useCallback((factor: number) => {
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        collateralFactor: factor,
+      })
+      return simulateToDay(newState, prev.currentDay)
+    })
+  }, [])
+
+  const setInitialDeposit = useCallback((amount: number) => {
+    pause()
+    setState(prev => {
+      const newState = initializeSimulation(amount, {
+        ...prev.marketConditions,
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
 
   // Apply scenario preset
   const applyScenario = useCallback((scenario: Scenario) => {
@@ -277,6 +315,8 @@ export function useSimulation(
     setBasePrice,
     setFcmMinHealth,
     setFcmTargetHealth,
+    setInitialDeposit,
+    setCollateralFactor,
     comparison,
     displayMetrics,
     scenarios: SCENARIOS,
@@ -284,5 +324,7 @@ export function useSimulation(
     debtTokens: DEBT_TOKENS,
     getHistoricTokens,
     getSimulatedTokens,
+    getDebtToken,
+    depositPresets: DEPOSIT_PRESETS,
   }
 }

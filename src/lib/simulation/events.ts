@@ -86,7 +86,7 @@ export function generateRebalanceEvent(
     type: 'rebalance',
     action: 'Auto-rebalancing triggered',
     code: `pool.rebalancePosition(pid: 1, force: false)`,
-    details: `TopUpSource.pull() → Pool.repay(${repaidAmount.toFixed(2)} MOET)`,
+    details: `Rebalancing repaid ${repaidAmount.toFixed(2)} debt to restore health`,
     healthBefore,
     healthAfter,
   }
@@ -106,7 +106,7 @@ export function generateScheduledCheckEvent(
     position: 'fcm',
     type: 'scheduled',
     action: actionTaken ? 'Scheduled check - rebalancing needed' : 'Scheduled health check',
-    code: `ScheduledTxn.execute() → position.checkHealth()`,
+    code: `ScheduledTxn.execute() → position.getHealth()`,
     details: actionTaken
       ? `Health: ${currentHealth.toFixed(2)} < ${PROTOCOL_CONFIG.minHealth} (triggering rebalance)`
       : `Health: ${currentHealth.toFixed(2)} (within bounds, no action)`,
@@ -145,7 +145,7 @@ export function generateLiquidationEvent(
     position: 'traditional',
     type: 'liquidation',
     action: 'LIQUIDATED',
-    code: `liquidator.liquidateRepayForSeize(pid, debtType, seizeType)`,
+    code: `LIQUIDATED — position health fell below 1.0`,
     details: `Liquidator repaid debt, seized $${collateralLost.toFixed(2)} collateral + ${(PROTOCOL_CONFIG.liquidationBonus * 100).toFixed(0)}% bonus`,
     healthBefore,
     healthAfter: 0,

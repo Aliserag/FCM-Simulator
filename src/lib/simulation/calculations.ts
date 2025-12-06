@@ -18,9 +18,9 @@ export function calculateHealthFactor(
 ): number {
   // Input validation - return safe defaults for invalid inputs
   if (collateralAmount <= 0 || collateralPrice <= 0) return 0
-  if (debtAmount <= 0) return Infinity
+  if (debtAmount <= 0) return 999 // Cap at 999 instead of Infinity for UI display
   const effectiveCollateral = collateralAmount * collateralPrice * collateralFactor
-  return effectiveCollateral / debtAmount
+  return Math.min(999, effectiveCollateral / debtAmount)
 }
 
 /**
@@ -55,12 +55,15 @@ export function calculateInitialBorrow(
   targetHealth: number = PROTOCOL_CONFIG.targetHealth,
   collateralFactor: number = PROTOCOL_CONFIG.collateralFactor
 ): number {
+  // Prevent division by zero
+  const safeTargetHealth = Math.max(0.1, targetHealth)
+  const safeCollateralFactor = Math.max(0.1, collateralFactor)
   const effectiveCollateral = calculateEffectiveCollateral(
     collateralAmount,
     collateralPrice,
-    collateralFactor
+    safeCollateralFactor
   )
-  return effectiveCollateral / targetHealth
+  return effectiveCollateral / safeTargetHealth
 }
 
 /**
@@ -146,12 +149,14 @@ export function calculateRebalanceRepayAmount(
   collateralPrice: number,
   collateralFactor: number = PROTOCOL_CONFIG.collateralFactor
 ): number {
+  // Prevent division by zero
+  const safeTargetHealth = Math.max(0.1, targetHealth)
   const effectiveCollateral = calculateEffectiveCollateral(
     collateralAmount,
     collateralPrice,
     collateralFactor
   )
-  const targetDebt = effectiveCollateral / targetHealth
+  const targetDebt = effectiveCollateral / safeTargetHealth
   const repayAmount = currentDebt - targetDebt
 
   return Math.max(0, repayAmount)
@@ -168,9 +173,11 @@ export function calculateLiquidationPrice(
   liquidationThreshold: number = PROTOCOL_CONFIG.liquidationThreshold
 ): number {
   if (collateralAmount <= 0) return 0
+  // Prevent division by zero
+  const safeCollateralFactor = Math.max(0.1, collateralFactor)
   // Health = (Collateral × Price × CF) / Debt = threshold
   // Price = (Debt × threshold) / (Collateral × CF)
-  return (debtAmount * liquidationThreshold) / (collateralAmount * collateralFactor)
+  return (debtAmount * liquidationThreshold) / (collateralAmount * safeCollateralFactor)
 }
 
 /**

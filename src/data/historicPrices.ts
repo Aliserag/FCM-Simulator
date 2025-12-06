@@ -166,11 +166,34 @@ export const TOKENS: TokenInfo[] = [
   },
 ]
 
-export const DEBT_TOKENS = [
-  { id: 'usdc', symbol: 'USDC', name: 'USD Coin', color: '#2775CA' },
-  { id: 'usdt', symbol: 'USDT', name: 'Tether', color: '#26A17B' },
-  { id: 'dai', symbol: 'DAI', name: 'Dai', color: '#F5AC37' },
+export interface DebtTokenInfo {
+  id: string
+  symbol: string
+  name: string
+  color: string
+  borrowRate: number // Annual borrow APY
+}
+
+export const DEBT_TOKENS: DebtTokenInfo[] = [
+  { id: 'usdc', symbol: 'USDC', name: 'USD Coin', color: '#2775CA', borrowRate: 0.05 },    // 5% - most liquid
+  { id: 'usdt', symbol: 'USDT', name: 'Tether', color: '#26A17B', borrowRate: 0.055 },    // 5.5%
+  { id: 'dai', symbol: 'DAI', name: 'Dai', color: '#F5AC37', borrowRate: 0.06 },          // 6% - decentralized premium
 ]
+
+/**
+ * Get debt token info by ID
+ */
+export function getDebtToken(tokenId: string): DebtTokenInfo | undefined {
+  return DEBT_TOKENS.find(t => t.id === tokenId)
+}
+
+/**
+ * Get borrow rate for a debt token
+ */
+export function getDebtTokenBorrowRate(tokenId: string): number {
+  const token = DEBT_TOKENS.find(t => t.id === tokenId)
+  return token?.borrowRate ?? 0.05 // Default 5%
+}
 
 /**
  * Get price for a token at a specific day
@@ -180,7 +203,8 @@ export function getTokenPrice(tokenId: string, day: number): number {
   if (!token) return 1
 
   const clampedDay = Math.max(0, Math.min(day, 365))
-  return token.basePrice * token.priceMultipliers[clampedDay]
+  const multiplier = token.priceMultipliers[clampedDay] ?? 1
+  return token.basePrice * multiplier
 }
 
 /**

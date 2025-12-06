@@ -20,6 +20,9 @@ export const SIMULATION_DEFAULTS = {
   playSpeed: 10, // days per second when auto-playing
 }
 
+// Deposit amount presets (USD value)
+export const DEPOSIT_PRESETS = [1000, 5000, 10000, 25000, 50000, 100000]
+
 // Preset scenarios
 export const SCENARIOS: Scenario[] = [
   {

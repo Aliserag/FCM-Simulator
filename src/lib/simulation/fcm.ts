@@ -286,11 +286,13 @@ export function getFCMRebalanceEvents(
   const events: Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> = []
 
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
+  const fcmMinHealth = marketConditions?.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth
+  const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
 
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
     basePrice,
-    PROTOCOL_CONFIG.targetHealth,
+    fcmTargetHealth,
     collateralFactor
   )
 
@@ -335,10 +337,10 @@ export function getFCMRebalanceEvents(
     )
 
     // Check for rebalancing
-    if (healthBefore < PROTOCOL_CONFIG.minHealth && healthBefore > 0) {
+    if (healthBefore < fcmMinHealth && healthBefore > 0) {
       const repayAmount = calculateRebalanceRepayAmount(
         healthBefore,
-        PROTOCOL_CONFIG.targetHealth,
+        fcmTargetHealth,
         state.debtAmount,
         state.collateralAmount,
         dayPrice
