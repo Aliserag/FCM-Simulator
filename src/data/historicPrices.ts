@@ -1,6 +1,7 @@
 /**
  * Historic price data for popular crypto assets
- * Using current 2025 prices as base, simulating 2024 market patterns
+ * Using current 2025 prices as base, simulating 2022 "Crypto Winter" patterns
+ * 2022 had two major crash events: Luna/3AC (May) and FTX (November)
  */
 
 export interface TokenInfo {
@@ -16,7 +17,8 @@ export interface TokenInfo {
   priceMultipliers: number[]
 }
 
-// Generate price data based on realistic market patterns
+// Generate price data based on 2022 "Crypto Winter" patterns
+// This year had two major crashes: Luna/3AC (May) and FTX (November)
 function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'avax' | 'stable'): number[] {
   const prices: number[] = []
 
@@ -27,79 +29,94 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'avax' | 'stable'): 
 
     switch (pattern) {
       case 'btc':
-        // BTC 2024 pattern: Started ~42k, ran to 73k, corrected, then ATH run to 100k
-        if (progress < 0.15) {
-          // Jan-Feb: Rally from 42k to 52k
-          multiplier = 1 + progress * 1.5 + Math.sin(day * 0.3) * 0.02
-        } else if (progress < 0.25) {
-          // Mar: ETF pump to ATH ~73k
-          const pumpProgress = (progress - 0.15) / 0.1
-          multiplier = 1.25 + pumpProgress * 0.5 + Math.sin(day * 0.2) * 0.03
-        } else if (progress < 0.55) {
-          // Apr-Jul: Correction and sideways 55k-65k
-          const correctionProgress = (progress - 0.25) / 0.3
-          multiplier = 1.75 - correctionProgress * 0.4 + Math.sin(day * 0.15) * 0.05
+        // BTC 2022: $47k → $16k (66% drop)
+        if (progress < 0.25) {
+          // Q1: Initial decline from ATH
+          multiplier = 1.0 - progress * 0.4 + Math.sin(day * 0.3) * 0.02
+        } else if (progress < 0.42) {
+          // May-June: Luna/3AC crash - steep drop
+          const crashProgress = (progress - 0.25) / 0.17
+          multiplier = 0.90 - crashProgress * 0.35 + Math.sin(day * 0.2) * 0.03
         } else if (progress < 0.75) {
-          // Aug-Oct: Accumulation 58k-68k
-          multiplier = 1.35 + Math.sin(day * 0.12) * 0.08
+          // Q3: Sideways at lows (~$20k)
+          multiplier = 0.55 + Math.sin(day * 0.15) * 0.04
+        } else if (progress < 0.85) {
+          // Nov: FTX collapse
+          const ftxCrash = (progress - 0.75) / 0.1
+          multiplier = 0.55 - ftxCrash * 0.2 + Math.sin(day * 0.3) * 0.02
         } else {
-          // Nov-Dec: Trump election pump to 100k+
-          const pumpProgress = (progress - 0.75) / 0.25
-          multiplier = 1.4 + pumpProgress * 1.0 + Math.sin(day * 0.25) * 0.03
+          // Dec: Slight recovery
+          const recovery = (progress - 0.85) / 0.15
+          multiplier = 0.35 + recovery * 0.05 + Math.sin(day * 0.25) * 0.02
         }
         break
 
       case 'eth':
-        // ETH 2024: Similar but weaker, 2.2k to 4k range
-        if (progress < 0.15) {
-          multiplier = 1 + progress * 1.2 + Math.sin(day * 0.35) * 0.03
-        } else if (progress < 0.25) {
-          const pumpProgress = (progress - 0.15) / 0.1
-          multiplier = 1.2 + pumpProgress * 0.4 + Math.sin(day * 0.25) * 0.04
-        } else if (progress < 0.55) {
-          const correctionProgress = (progress - 0.25) / 0.3
-          multiplier = 1.6 - correctionProgress * 0.35 + Math.sin(day * 0.18) * 0.06
+        // ETH 2022: $3.4k → $880 (74% drop)
+        if (progress < 0.25) {
+          // Q1: Initial decline from ATH
+          multiplier = 1.0 - progress * 0.5 + Math.sin(day * 0.3) * 0.03
+        } else if (progress < 0.42) {
+          // May-June: Luna crash - steep drop
+          const crashProgress = (progress - 0.25) / 0.17
+          multiplier = 0.875 - crashProgress * 0.45 + Math.sin(day * 0.2) * 0.04
         } else if (progress < 0.75) {
-          multiplier = 1.25 + Math.sin(day * 0.14) * 0.1
+          // Q3: Sideways at lows
+          multiplier = 0.42 + Math.sin(day * 0.15) * 0.05
+        } else if (progress < 0.85) {
+          // Nov: FTX collapse
+          const ftxCrash = (progress - 0.75) / 0.1
+          multiplier = 0.45 - ftxCrash * 0.18 + Math.sin(day * 0.3) * 0.02
         } else {
-          const pumpProgress = (progress - 0.75) / 0.25
-          multiplier = 1.3 + pumpProgress * 0.6 + Math.sin(day * 0.22) * 0.04
+          // Dec: Slight recovery
+          const recovery = (progress - 0.85) / 0.15
+          multiplier = 0.27 + recovery * 0.06 + Math.sin(day * 0.25) * 0.02
         }
         break
 
       case 'sol':
-        // SOL 2024: Strong year, 100 to 250 range
-        if (progress < 0.15) {
-          multiplier = 1 + progress * 2 + Math.sin(day * 0.4) * 0.04
-        } else if (progress < 0.25) {
-          const pumpProgress = (progress - 0.15) / 0.1
-          multiplier = 1.3 + pumpProgress * 0.5 + Math.sin(day * 0.3) * 0.05
-        } else if (progress < 0.55) {
-          const correctionProgress = (progress - 0.25) / 0.3
-          multiplier = 1.8 - correctionProgress * 0.5 + Math.sin(day * 0.2) * 0.08
+        // SOL 2022: $180 → $8 (96% drop) - hit hardest due to FTX connection
+        if (progress < 0.25) {
+          // Q1: Initial decline
+          multiplier = 1.0 - progress * 0.6 + Math.sin(day * 0.4) * 0.04
+        } else if (progress < 0.42) {
+          // May-June: Luna crash
+          const crashProgress = (progress - 0.25) / 0.17
+          multiplier = 0.85 - crashProgress * 0.45 + Math.sin(day * 0.3) * 0.05
         } else if (progress < 0.75) {
-          multiplier = 1.3 + Math.sin(day * 0.16) * 0.12
+          // Q3: Weak consolidation
+          multiplier = 0.40 + Math.sin(day * 0.2) * 0.06
+        } else if (progress < 0.85) {
+          // Nov: FTX collapse - SOL hit hardest
+          const ftxCrash = (progress - 0.75) / 0.1
+          multiplier = 0.35 - ftxCrash * 0.28 + Math.sin(day * 0.35) * 0.02
         } else {
-          const pumpProgress = (progress - 0.75) / 0.25
-          multiplier = 1.4 + pumpProgress * 1.2 + Math.sin(day * 0.28) * 0.05
+          // Dec: Barely any recovery
+          const recovery = (progress - 0.85) / 0.15
+          multiplier = 0.07 + recovery * 0.03 + Math.sin(day * 0.25) * 0.01
         }
         break
 
       case 'avax':
-        // AVAX 2024: Weaker performance, 35 to 55 range mostly
-        if (progress < 0.15) {
-          multiplier = 1 + progress * 0.8 + Math.sin(day * 0.35) * 0.04
-        } else if (progress < 0.25) {
-          const pumpProgress = (progress - 0.15) / 0.1
-          multiplier = 1.12 + pumpProgress * 0.3 + Math.sin(day * 0.28) * 0.05
-        } else if (progress < 0.55) {
-          const correctionProgress = (progress - 0.25) / 0.3
-          multiplier = 1.4 - correctionProgress * 0.5 + Math.sin(day * 0.22) * 0.06
+        // AVAX 2022: $130 → $12 (91% drop)
+        if (progress < 0.25) {
+          // Q1: Initial decline
+          multiplier = 1.0 - progress * 0.55 + Math.sin(day * 0.35) * 0.04
+        } else if (progress < 0.42) {
+          // May-June: Luna crash
+          const crashProgress = (progress - 0.25) / 0.17
+          multiplier = 0.86 - crashProgress * 0.50 + Math.sin(day * 0.28) * 0.05
         } else if (progress < 0.75) {
-          multiplier = 0.9 + Math.sin(day * 0.18) * 0.1
+          // Q3: Weak at lows
+          multiplier = 0.36 + Math.sin(day * 0.18) * 0.05
+        } else if (progress < 0.85) {
+          // Nov: FTX collapse
+          const ftxCrash = (progress - 0.75) / 0.1
+          multiplier = 0.38 - ftxCrash * 0.25 + Math.sin(day * 0.3) * 0.02
         } else {
-          const pumpProgress = (progress - 0.75) / 0.25
-          multiplier = 0.95 + pumpProgress * 0.5 + Math.sin(day * 0.25) * 0.04
+          // Dec: Slight recovery
+          const recovery = (progress - 0.85) / 0.15
+          multiplier = 0.13 + recovery * 0.04 + Math.sin(day * 0.25) * 0.01
         }
         break
 
@@ -111,7 +128,7 @@ function generatePriceData(pattern: 'btc' | 'eth' | 'sol' | 'avax' | 'stable'): 
         multiplier = 1
     }
 
-    prices.push(Math.max(0.1, multiplier))
+    prices.push(Math.max(0.05, multiplier))
   }
 
   return prices
