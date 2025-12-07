@@ -174,7 +174,8 @@ export default function SimulatorPage() {
             Sleep through the next Crash. Wake up wealthy.
           </h1>
           <p className="text-white/60 text-lg mb-2 max-w-xl mx-auto">
-            Watch how Traditional DeFi compares to the Flow Credit Market
+            Watch how Traditional DeFi compares to Flow Credit Market
+            regenerative positions
           </p>
 
           {/* Show Start Simulation button for Simulated mode before starting */}
@@ -302,7 +303,8 @@ export default function SimulatorPage() {
                       conditions.
                     </p>
                     <p className="text-xs text-white/60">
-                      Uses realistic price patterns with configurable volatility.
+                      Uses realistic price patterns with configurable
+                      volatility.
                     </p>
                   </div>
                 }
@@ -544,7 +546,8 @@ export default function SimulatorPage() {
                       (state.initialDeposit *
                         (state.marketConditions.collateralFactor ??
                           getToken(state.marketConditions.collateralToken)
-                            ?.collateralFactor ?? 0.8)) /
+                            ?.collateralFactor ??
+                          0.8)) /
                         (state.marketConditions.fcmTargetHealth ??
                           PROTOCOL_CONFIG.targetHealth)
                     ).toLocaleString()}
@@ -562,7 +565,8 @@ export default function SimulatorPage() {
                     {(
                       (state.marketConditions.collateralFactor ??
                         getToken(state.marketConditions.collateralToken)
-                          ?.collateralFactor ?? 0.8) * 100
+                          ?.collateralFactor ??
+                        0.8) * 100
                     ).toFixed(0)}
                     % LTV
                   </span>
@@ -732,12 +736,16 @@ export default function SimulatorPage() {
                     <div>
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-white/60">
-                          {getDebtToken(state.marketConditions.debtToken)?.symbol ?? "Debt"} Borrow APY
+                          {getDebtToken(state.marketConditions.debtToken)
+                            ?.symbol ?? "Debt"}{" "}
+                          Borrow APY
                         </span>
                         <span className="font-mono text-red-400">
                           {formatPercent(
-                            -(state.marketConditions.borrowAPY ??
-                              PROTOCOL_CONFIG.borrowAPY) * 100,
+                            -(
+                              state.marketConditions.borrowAPY ??
+                              PROTOCOL_CONFIG.borrowAPY
+                            ) * 100,
                             1
                           )}
                         </span>
@@ -762,7 +770,9 @@ export default function SimulatorPage() {
                     <div>
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-white/60">
-                          {getToken(state.marketConditions.collateralToken)?.symbol ?? "Collateral"} Supply APY
+                          {getToken(state.marketConditions.collateralToken)
+                            ?.symbol ?? "Collateral"}{" "}
+                          Supply APY
                         </span>
                         <span className="font-mono text-emerald-400">
                           {formatPercent(
@@ -866,7 +876,9 @@ export default function SimulatorPage() {
                     {/* LTV (Collateral Factor) */}
                     <div>
                       <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">LTV (Loan-to-Value)</span>
+                        <span className="text-white/60">
+                          LTV (Loan-to-Value)
+                        </span>
                         <span className="font-mono">
                           {(
                             (state.marketConditions.collateralFactor ??
@@ -890,14 +902,14 @@ export default function SimulatorPage() {
                         className="w-full"
                       />
                       <p className="text-[10px] text-white/40 mt-1">
-                        Higher LTV = more borrowing power, higher liquidation risk
+                        Higher LTV = more borrowing power, higher liquidation
+                        risk
                       </p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-
           </div>
         )}
 
