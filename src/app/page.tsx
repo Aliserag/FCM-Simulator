@@ -175,7 +175,6 @@ export default function SimulatorPage() {
           </h1>
           <p className="text-white/60 text-lg mb-2 max-w-xl mx-auto">
             Watch how Traditional DeFi compares to Flow Credit Market
-            regenerative positions.
           </p>
 
           {/* Show Start Simulation button for Simulated mode before starting */}
@@ -385,15 +384,34 @@ export default function SimulatorPage() {
                           key={token.id}
                           position="bottom"
                           content={
-                            <div className="text-xs space-y-1">
-                              <div className="font-semibold">{token.name}</div>
-                              <div className="text-white/60">
-                                LTV: {(token.collateralFactor * 100).toFixed(0)}
-                                %
+                            <div className="text-xs min-w-[140px]">
+                              <div className="font-semibold text-sm mb-2">
+                                {token.name}
                               </div>
-                              <div className="text-white/60">
-                                Supply APY: {(token.supplyAPY * 100).toFixed(1)}
-                                %
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between">
+                                  <span className="text-white/50">Price</span>
+                                  <span className="font-mono">
+                                    $
+                                    {price?.toLocaleString(undefined, {
+                                      maximumFractionDigits: price < 1 ? 4 : 2,
+                                    }) ?? "—"}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-white/50">Max LTV</span>
+                                  <span className="font-mono">
+                                    {(token.collateralFactor * 100).toFixed(0)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-white/50">
+                                    Supply APY
+                                  </span>
+                                  <span className="font-mono text-emerald-400">
+                                    +{(token.supplyAPY * 100).toFixed(1)}%
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           }
@@ -570,6 +588,14 @@ export default function SimulatorPage() {
                     ).toFixed(0)}
                     % LTV
                   </span>
+                </div>
+                <div className="text-xs text-white/40 mt-1">
+                  Borrow reduced by Target Health (
+                  {(
+                    state.marketConditions.fcmTargetHealth ??
+                    PROTOCOL_CONFIG.targetHealth
+                  ).toFixed(1)}
+                  ×) for safety margin
                 </div>
               </div>
             </div>
