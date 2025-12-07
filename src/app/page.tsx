@@ -175,7 +175,7 @@ export default function SimulatorPage() {
           </h1>
           <p className="text-white/60 text-lg mb-2 max-w-xl mx-auto">
             Watch how Traditional DeFi compares to Flow Credit Market
-            regenerative positions
+            regenerative positions.
           </p>
 
           {/* Show Start Simulation button for Simulated mode before starting */}
