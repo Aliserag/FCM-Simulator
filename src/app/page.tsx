@@ -188,8 +188,25 @@ export default function SimulatorPage() {
             </button>
           )}
 
-          {/* Show play/pause button for Historic mode, or when simulation already started */}
-          {(state.marketConditions.dataMode === "historic" || showResults) && (
+          {/* Show Try Again button when simulated mode simulation is complete */}
+          {state.marketConditions.dataMode === "simulated" &&
+            showResults &&
+            state.currentDay === state.maxDay && (
+              <button
+                onClick={() => {
+                  setHasStarted(false);
+                  reset();
+                }}
+                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold text-lg transition-all mt-4 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 animate-pulse-attention"
+              >
+                <RotateCcw className="w-6 h-6" />
+                Try Again
+              </button>
+            )}
+
+          {/* Show play/pause button for Historic mode, or Simulated mode in progress */}
+          {(state.marketConditions.dataMode === "historic" ||
+            (showResults && state.currentDay < state.maxDay)) && (
             <button
               onClick={isPlaying ? pause : play}
               className={cn(
