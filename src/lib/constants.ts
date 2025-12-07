@@ -42,11 +42,11 @@ export const SCENARIOS: Scenario[] = [
     interestRateChange: 0,
   },
   {
-    id: 'sideways',
-    name: 'Sideways',
-    description: 'Stable prices, normal conditions',
-    priceChange: 0,
-    volatility: 'low',
+    id: 'v_shape',
+    name: 'V-Shape',
+    description: 'Crash then recovery pattern',
+    priceChange: -30,
+    volatility: 'high',
     interestRateChange: 0,
   },
   {
