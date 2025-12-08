@@ -10,7 +10,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceDot,
+  Label,
 } from 'recharts'
+import { getEventsInRange, eventToSimulationDay, type BlackSwanEvent } from '@/data/blackSwanEvents'
 
 export interface ChartDataPoint {
   day: number
@@ -29,6 +31,9 @@ interface SimulationChartProps {
   currentDay: number
   totalDays: number
   tokenSymbol?: string
+  startYear?: number
+  endYear?: number
+  showEventMarkers?: boolean
 }
 
 // Format USD values
@@ -110,6 +115,9 @@ export default function SimulationChart({
   data,
   currentDay,
   totalDays,
+  startYear: propStartYear,
+  endYear: propEndYear,
+  showEventMarkers = true,
 }: SimulationChartProps) {
   const [showLiquidationPopup, setShowLiquidationPopup] = useState(false)
   const liquidationShownRef = useRef(false)
@@ -163,8 +171,11 @@ export default function SimulationChart({
 
   // Generate year tick values for X-axis
   const yearTicks: number[] = []
-  const startYear = data[0]?.year ?? 2020
-  const endYear = data[data.length - 1]?.year ?? 2025
+  const startYear = propStartYear ?? data[0]?.year ?? 2020
+  const endYear = propEndYear ?? data[data.length - 1]?.year ?? 2025
+
+  // Get black swan events for this date range
+  const blackSwanEvents = showEventMarkers ? getEventsInRange(startYear, endYear) : []
   for (let year = startYear; year <= endYear; year++) {
     const dayIndex = (year - startYear) * 365
     if (dayIndex <= totalDays) {
@@ -237,6 +248,36 @@ export default function SimulationChart({
               }}
             />
           )}
+
+          {/* Black Swan Event Labels */}
+          {blackSwanEvents.map((event) => {
+            const simDay = eventToSimulationDay(event, startYear)
+            // Only show if we've reached that day in the simulation
+            if (simDay > currentDay || simDay < 0 || simDay > totalDays) return null
+
+            // Find the price data point at that day for positioning
+            const dataPoint = data.find(d => d.day === simDay)
+            if (!dataPoint) return null
+
+            // Position label above the higher of the two values
+            const yPosition = Math.max(dataPoint.fcmValue, dataPoint.traditionalValue) * 1.05
+
+            return (
+              <ReferenceDot
+                key={event.id}
+                x={simDay}
+                y={yPosition}
+                r={0}
+                label={{
+                  value: event.shortName,
+                  position: 'top',
+                  fill: event.severity === 'severe' ? '#dc2626' : '#f59e0b',
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              />
+            )
+          })}
 
           {/* Traditional line (render first so FCM is on top) */}
           {/* Uses offset value to show slightly below FCM when overlapping */}

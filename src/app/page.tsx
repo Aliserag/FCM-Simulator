@@ -1169,6 +1169,8 @@ export default function SimulatorPage() {
                   data={state.chartData}
                   currentDay={state.currentDay}
                   totalDays={state.totalDays}
+                  startYear={state.marketConditions.startYear ?? 2020}
+                  endYear={state.marketConditions.endYear ?? 2020}
                 />
               </div>
             )}
