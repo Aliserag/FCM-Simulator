@@ -11,6 +11,7 @@ import {
   calculatePriceAtDay,
 } from './calculations'
 import { getTokenPrice, getTokenSupplyAPY } from '@/data/historicPrices'
+import { getMultiYearTokenPrice } from '@/data/multiYearPrices'
 
 /**
  * Traditional Lending Simulation
@@ -31,7 +32,7 @@ export interface TraditionalSimulationParams {
 
 /**
  * Helper function to get price at a specific day
- * Uses historic data if available, otherwise calculates simulated price
+ * Uses multi-year historic data if available, otherwise falls back to single-year or simulated
  */
 function getPriceAtDay(
   day: number,
@@ -39,6 +40,20 @@ function getPriceAtDay(
   marketConditions?: MarketConditions
 ): number {
   if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
+    const startYear = marketConditions.startYear ?? 2020
+    const endYear = marketConditions.endYear ?? 2020
+    const isMultiYear = (marketConditions.collateralToken === 'btc' || marketConditions.collateralToken === 'eth')
+
+    if (isMultiYear) {
+      // Use multi-year price data for BTC/ETH
+      return getMultiYearTokenPrice(
+        marketConditions.collateralToken as 'btc' | 'eth',
+        day,
+        startYear,
+        endYear
+      )
+    }
+    // Single-year historic data
     return getTokenPrice(marketConditions.collateralToken, day)
   }
   // Fallback to simulated price
@@ -47,7 +62,8 @@ function getPriceAtDay(
     marketConditions?.priceChange ?? -30,
     day,
     365,
-    marketConditions?.volatility ?? 'medium'
+    marketConditions?.volatility ?? 'medium',
+    marketConditions?.pattern ?? 'linear'
   )
 }
 
@@ -131,7 +147,8 @@ export function simulateTraditionalPosition(
     const dayPrice = getPriceAtDay(d, basePrice, marketConditions)
 
     // 1. Earn daily supply yield on collateral value
-    // Traditional lending DOES earn yield, but user must manually manage it
+    // Traditional lending earns yield, but does NOT auto-apply it to debt
+    // User would need to manually claim and use it (not simulated here)
     const collateralValueUSD = collateralAmount * dayPrice
     const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
     totalYieldEarned += dailyYield
@@ -141,6 +158,9 @@ export function simulateTraditionalPosition(
     debtAmount += dailyInterest
     totalInterestPaid += dailyInterest
 
+    // Traditional lending has NO automatic yield application to debt
+    // This is a key difference from FCM which auto-applies yield daily
+
     // 3. Calculate current health factor
     const currentHealth = calculateHealthFactor(
       collateralAmount,
@@ -149,7 +169,7 @@ export function simulateTraditionalPosition(
       collateralFactor
     )
 
-    // 4. Check for liquidation (traditional has no protection)
+    // 5. Check for liquidation (traditional has no protection)
     // Liquidate when health drops to or below threshold (1.0)
     if (currentHealth <= PROTOCOL_CONFIG.liquidationThreshold) {
       liquidated = true

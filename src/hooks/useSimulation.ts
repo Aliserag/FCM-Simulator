@@ -9,6 +9,7 @@ import {
   resetSimulation,
   getComparisonSummary,
   getDisplayMetrics,
+  generateChartData,
 } from '@/lib/simulation/engine'
 import { SCENARIOS, PROTOCOL_CONFIG, SIMULATION_DEFAULTS, DEPOSIT_PRESETS } from '@/lib/constants'
 import { TOKENS, DEBT_TOKENS, getToken, getHistoricTokens, getSimulatedTokens, getDebtToken, getDebtTokenBorrowRate } from '@/data/historicPrices'
@@ -25,6 +26,7 @@ interface UseSimulationReturn {
   pause: () => void
   reset: () => void
   setPlaySpeed: (speed: number) => void
+  initChartData: () => void
 
   // Market conditions
   setPriceChange: (percent: number) => void
@@ -44,6 +46,10 @@ interface UseSimulationReturn {
   setInitialDeposit: (amount: number) => void
   setCollateralFactor: (factor: number) => void
 
+  // Historic mode options
+  setStartYear: (year: number) => void
+  setEndYear: (year: number) => void
+
   // Computed
   comparison: ReturnType<typeof getComparisonSummary>
   displayMetrics: ReturnType<typeof getDisplayMetrics>
@@ -58,6 +64,7 @@ interface UseSimulationReturn {
 
   // Constants
   depositPresets: typeof DEPOSIT_PRESETS
+  availableYears: number[]
 }
 
 export function useSimulation(
@@ -72,6 +79,8 @@ export function useSimulation(
       dataMode: 'historic',
       collateralToken: 'eth',
       debtToken: 'usdc',
+      startYear: 2020,
+      endYear: 2020,
     })
   )
 
@@ -89,6 +98,14 @@ export function useSimulation(
 
   // Play animation
   const play = useCallback(() => {
+    // Initialize chart data before playing if not already done
+    setState(prev => {
+      if (prev.chartData.length === 0) {
+        const chartData = generateChartData(prev)
+        return { ...prev, chartData }
+      }
+      return prev
+    })
     setIsPlaying(true)
   }, [])
 
@@ -235,6 +252,44 @@ export function useSimulation(
     })
   }, [pause])
 
+  // Historic mode options
+  const setStartYear = useCallback((year: number) => {
+    pause()
+    setState(prev => {
+      const currentEndYear = prev.marketConditions.endYear ?? 2020
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        startYear: year,
+        // Ensure endYear is at least startYear
+        endYear: Math.max(year, currentEndYear),
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
+  const setEndYear = useCallback((year: number) => {
+    pause()
+    setState(prev => {
+      const currentStartYear = prev.marketConditions.startYear ?? 2020
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        endYear: year,
+        // Ensure startYear is at most endYear
+        startYear: Math.min(year, currentStartYear),
+      })
+      return simulateToDay(newState, 0)
+    })
+  }, [pause])
+
+  // Initialize chart data (called before play to pre-compute all data points)
+  const initChartData = useCallback(() => {
+    setState(prev => {
+      if (prev.chartData.length > 0) return prev // Already initialized
+      const chartData = generateChartData(prev)
+      return { ...prev, chartData }
+    })
+  }, [])
+
   // Apply scenario preset
   const applyScenario = useCallback((scenario: Scenario) => {
     pause()
@@ -244,6 +299,7 @@ export function useSimulation(
         priceChange: scenario.priceChange,
         volatility: scenario.volatility,
         interestRateChange: scenario.interestRateChange,
+        pattern: scenario.pattern,
         dataMode: 'simulated',
       })
       // Reset to day 0 when applying scenario
@@ -251,7 +307,7 @@ export function useSimulation(
     })
   }, [pause])
 
-  // Animation loop
+  // Animation loop - uses state.playSpeed for dynamic speed based on total days
   useEffect(() => {
     if (!isPlaying) return
 
@@ -261,10 +317,16 @@ export function useSimulation(
       }
 
       const deltaTime = timestamp - lastTimeRef.current
-      const daysToAdvance = (deltaTime / 1000) * playSpeed
 
-      if (daysToAdvance >= 1) {
-        setState(prev => {
+      setState(prev => {
+        // Base speed calculated from totalDays (completes in ~1 minute at 1x)
+        // User's playSpeed (1, 2, 3, 4) acts as a multiplier
+        const baseSpeed = prev.playSpeed / 4 // Slow down base speed so 1x is comfortable
+        const effectiveSpeed = baseSpeed * playSpeed // Apply user's speed multiplier
+        const daysToAdvance = (deltaTime / 1000) * effectiveSpeed
+
+        if (daysToAdvance >= 1) {
+          lastTimeRef.current = timestamp
           const newDay = Math.min(prev.currentDay + Math.floor(daysToAdvance), prev.maxDay)
 
           // Stop playing if we've reached the end
@@ -274,9 +336,9 @@ export function useSimulation(
           }
 
           return simulateToDay(prev, newDay)
-        })
-        lastTimeRef.current = timestamp
-      }
+        }
+        return prev
+      })
 
       animationRef.current = requestAnimationFrame(animate)
     }
@@ -294,6 +356,9 @@ export function useSimulation(
   const comparison = getComparisonSummary(state)
   const displayMetrics = getDisplayMetrics(state)
 
+  // Available years for historic simulation
+  const availableYears = [2020, 2021, 2022, 2023, 2024, 2025]
+
   return {
     state,
     isPlaying,
@@ -303,6 +368,7 @@ export function useSimulation(
     pause,
     reset,
     setPlaySpeed,
+    initChartData,
     setPriceChange,
     setVolatility,
     setInterestRateChange,
@@ -317,6 +383,8 @@ export function useSimulation(
     setFcmTargetHealth,
     setInitialDeposit,
     setCollateralFactor,
+    setStartYear,
+    setEndYear,
     comparison,
     displayMetrics,
     scenarios: SCENARIOS,
@@ -326,5 +394,6 @@ export function useSimulation(
     getSimulatedTokens,
     getDebtToken,
     depositPresets: DEPOSIT_PRESETS,
+    availableYears,
   }
 }

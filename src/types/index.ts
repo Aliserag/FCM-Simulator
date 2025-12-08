@@ -13,6 +13,19 @@ export interface PositionState {
   rebalanceCount: number        // number of rebalances (FCM only)
 }
 
+// Chart data point for visualization
+export interface ChartDataPoint {
+  day: number
+  year: number
+  date: string
+  traditionalValue: number
+  fcmValue: number
+  price: number
+  liquidationPrice: number
+  traditionalLiquidated: boolean
+  fcmLiquidated: boolean
+}
+
 // Event logged during simulation
 export interface SimulationEvent {
   id: string
@@ -26,6 +39,9 @@ export interface SimulationEvent {
   healthAfter?: number
 }
 
+// Price pattern type for simulated mode
+export type PricePattern = 'linear' | 'crash' | 'v_shape' | 'bull'
+
 // Market conditions (user adjustable)
 export interface MarketConditions {
   priceChange: number           // % change in token price (-99 to +10000)
@@ -34,6 +50,7 @@ export interface MarketConditions {
   dataMode: 'simulated' | 'historic'  // Use simulated or real historic data
   collateralToken: string       // Selected collateral token (btc, eth, sol, etc.)
   debtToken: string             // Selected debt token (usdc, usdt, dai)
+  pattern?: PricePattern        // Price movement pattern for simulated mode
   // Protocol config overrides (for simulated mode)
   borrowAPY?: number            // Override borrow APY
   supplyAPY?: number            // Override supply APY
@@ -41,6 +58,9 @@ export interface MarketConditions {
   fcmMinHealth?: number         // FCM rebalance trigger threshold
   fcmTargetHealth?: number      // FCM rebalance restore target
   collateralFactor?: number     // Override LTV (0.5-0.9)
+  // Historic mode options
+  startYear?: number            // 2020-2025
+  endYear?: number              // 2020-2025
 }
 
 // Full simulation state
@@ -56,6 +76,8 @@ export interface SimulationState {
   baseFlowPrice: number         // Starting price ($1.00)
   isPlaying: boolean            // Auto-play animation
   playSpeed: number             // Days per second
+  chartData: ChartDataPoint[]   // Pre-computed chart data for all days
+  totalDays: number             // Total days in simulation (based on year range)
 }
 
 // Preset scenario
@@ -66,6 +88,7 @@ export interface Scenario {
   priceChange: number
   volatility: 'low' | 'medium' | 'high'
   interestRateChange: number
+  pattern: PricePattern
 }
 
 // Tooltip content

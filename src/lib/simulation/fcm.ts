@@ -12,6 +12,7 @@ import {
   calculatePriceAtDay,
 } from './calculations'
 import { getTokenPrice, getTokenSupplyAPY } from '@/data/historicPrices'
+import { getMultiYearTokenPrice } from '@/data/multiYearPrices'
 
 /**
  * FCM (Flow Credit Market) Lending Simulation
@@ -81,7 +82,7 @@ export function initializeFCMPosition(
 
 /**
  * Helper function to get price at a specific day
- * Uses historic data if available, otherwise calculates simulated price
+ * Uses multi-year historic data if available, otherwise falls back to single-year or simulated
  */
 function getPriceAtDay(
   day: number,
@@ -89,6 +90,20 @@ function getPriceAtDay(
   marketConditions?: MarketConditions
 ): number {
   if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
+    const startYear = marketConditions.startYear ?? 2020
+    const endYear = marketConditions.endYear ?? 2020
+    const isMultiYear = (marketConditions.collateralToken === 'btc' || marketConditions.collateralToken === 'eth')
+
+    if (isMultiYear) {
+      // Use multi-year price data for BTC/ETH
+      return getMultiYearTokenPrice(
+        marketConditions.collateralToken as 'btc' | 'eth',
+        day,
+        startYear,
+        endYear
+      )
+    }
+    // Single-year historic data
     return getTokenPrice(marketConditions.collateralToken, day)
   }
   // Fallback to simulated price
@@ -97,7 +112,8 @@ function getPriceAtDay(
     marketConditions?.priceChange ?? -30,
     day,
     365,
-    marketConditions?.volatility ?? 'medium'
+    marketConditions?.volatility ?? 'medium',
+    marketConditions?.pattern ?? 'linear'
   )
 }
 
@@ -169,8 +185,9 @@ export function simulateFCMPosition(
     state.debtAmount += dailyInterest
     state.totalInterestPaid += dailyInterest
 
-    // 3. FCM uses accumulated yield to continuously pay down debt
-    // This is a key FCM feature: earned interest helps reduce debt
+    // 3. FCM ALWAYS uses accumulated yield to pay down debt
+    // This is a core FCM protection feature - earned yield continuously reduces debt
+    // This happens regardless of compounding settings (FCM's automatic protection)
     if (state.accumulatedYield > 0 && state.debtAmount > 0) {
       const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
       state.debtAmount -= yieldToApply

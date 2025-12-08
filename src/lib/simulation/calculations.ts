@@ -1,4 +1,5 @@
 import { PROTOCOL_CONFIG } from '@/lib/constants'
+import { PricePattern } from '@/types'
 
 /**
  * Core FCM calculations - Realistic DeFi lending math
@@ -81,16 +82,21 @@ export function calculateCompoundInterest(
 }
 
 /**
- * Calculate price at a given day with realistic market movement
- * Uses a V-shaped pattern for negative scenarios: crash then recovery
- * This better demonstrates FCM's advantage over traditional lending
+ * Calculate price at a given day with distinct market patterns
+ *
+ * Patterns:
+ * - linear: Straight line trend (for Decline, Rate Hike)
+ * - crash: Sharp drop, stays low with minimal recovery (for Crash)
+ * - v_shape: Drop then strong recovery (for V-Shape)
+ * - bull: Accelerating growth with pullbacks (for Bull Run)
  */
 export function calculatePriceAtDay(
   basePrice: number,
   targetChangePercent: number,
   currentDay: number,
   totalDays: number,
-  volatility: 'low' | 'medium' | 'high' = 'medium'
+  volatility: 'low' | 'medium' | 'high' = 'medium',
+  pattern: PricePattern = 'linear'
 ): number {
   if (currentDay === 0) return basePrice
 
@@ -108,28 +114,76 @@ export function calculatePriceAtDay(
                 Math.cos(seed * 0.07) * volatilityFactors[volatility] * 0.5
 
   let trendChange: number
+  const targetChange = targetChangePercent / 100 // Convert to decimal
 
-  if (targetChangePercent < -20) {
-    // V-shaped recovery pattern for crash scenarios
-    // Price drops to bottom around day 120-150, then recovers
-    const bottomDay = 0.35 // 35% through the year (~day 128)
-    const dropMagnitude = targetChangePercent / 100 // e.g., -0.40 for -40%
+  switch (pattern) {
+    case 'crash':
+      // Sharp drop pattern - drops fast, stays low with minimal recovery
+      // Reaches ~80% of drop by day 100, then slow grind
+      if (progress < 0.27) {
+        // Fast initial crash (0-100 days)
+        const crashProgress = progress / 0.27
+        trendChange = targetChange * 0.8 * Math.pow(crashProgress, 0.6)
+      } else if (progress < 0.5) {
+        // Dead cat bounce (~10% recovery)
+        const bounceProgress = (progress - 0.27) / 0.23
+        const bottomValue = targetChange * 0.8
+        const bounceAmount = Math.abs(targetChange) * 0.1 * Math.sin(bounceProgress * Math.PI)
+        trendChange = bottomValue + bounceAmount
+      } else {
+        // Slow grind to final value
+        const grindProgress = (progress - 0.5) / 0.5
+        const midValue = targetChange * 0.8
+        trendChange = midValue + (targetChange - midValue) * grindProgress
+      }
+      break
 
-    if (progress < bottomDay) {
-      // Dropping phase - accelerated drop
-      const dropProgress = progress / bottomDay
-      trendChange = dropMagnitude * 1.3 * Math.pow(dropProgress, 0.8)
-    } else {
-      // Recovery phase - partial recovery
-      const recoveryProgress = (progress - bottomDay) / (1 - bottomDay)
-      const bottomValue = dropMagnitude * 1.3
-      // Recover to end at targetChangePercent (partial recovery)
-      const recoveryAmount = (targetChangePercent / 100) - bottomValue
-      trendChange = bottomValue + recoveryAmount * Math.pow(recoveryProgress, 0.6)
-    }
-  } else {
-    // Linear trend for non-crash scenarios
-    trendChange = (targetChangePercent / 100) * progress
+    case 'v_shape':
+      // V-shaped pattern - sharp drop then strong recovery
+      // Drops to bottom at ~35% through, then recovers strongly
+      const bottomDay = 0.35
+      if (progress < bottomDay) {
+        // Sharp drop phase
+        const dropProgress = progress / bottomDay
+        // Drop deeper than final value (oversell)
+        trendChange = targetChange * 1.8 * Math.pow(dropProgress, 0.7)
+      } else {
+        // Strong recovery phase
+        const recoveryProgress = (progress - bottomDay) / (1 - bottomDay)
+        const bottomValue = targetChange * 1.8
+        // Recover strongly - may even go positive
+        const recoveryTarget = targetChange * 0.3 // Recover most losses
+        const recoveryAmount = recoveryTarget - bottomValue
+        trendChange = bottomValue + recoveryAmount * Math.pow(recoveryProgress, 0.5)
+      }
+      break
+
+    case 'bull':
+      // Bull market pattern - accelerating growth with pullbacks
+      // Momentum builds, has periodic pullbacks, accelerates near end
+      const pullbackPhases = [0.2, 0.45, 0.7] // Days when pullbacks occur
+      let pullbackEffect = 0
+
+      for (const phase of pullbackPhases) {
+        if (progress > phase && progress < phase + 0.08) {
+          // During pullback
+          const pullbackProgress = (progress - phase) / 0.08
+          pullbackEffect = -0.08 * Math.sin(pullbackProgress * Math.PI)
+        }
+      }
+
+      // Accelerating growth curve with momentum
+      const baseGrowth = targetChange * Math.pow(progress, 0.7)
+      // Add momentum acceleration in second half
+      const momentum = progress > 0.5 ? targetChange * 0.2 * Math.pow((progress - 0.5) / 0.5, 2) : 0
+      trendChange = baseGrowth + momentum + pullbackEffect
+      break
+
+    case 'linear':
+    default:
+      // Simple linear trend - straight line from start to end
+      trendChange = targetChange * progress
+      break
   }
 
   // Calculate raw price and enforce a floor (never below 0.1% of base price)

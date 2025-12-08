@@ -42,6 +42,7 @@ import { getTokenSupplyAPY, getToken } from "@/data/historicPrices";
 import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { RebalanceToast } from "@/components/RebalanceToast";
 import { useCoinGeckoPrices } from "@/hooks/useCoinGeckoPrices";
+import SimulationChart from "@/components/SimulationChart";
 
 export default function SimulatorPage() {
   const {
@@ -67,6 +68,8 @@ export default function SimulatorPage() {
     setFcmTargetHealth,
     setInitialDeposit,
     setCollateralFactor,
+    setStartYear,
+    setEndYear,
     comparison,
     scenarios,
     tokens,
@@ -75,6 +78,7 @@ export default function SimulatorPage() {
     getSimulatedTokens,
     getDebtToken,
     depositPresets,
+    availableYears,
   } = useSimulation();
 
   // Live prices from CoinGecko (for simulated mode)
@@ -96,6 +100,7 @@ export default function SimulatorPage() {
   });
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Handler for starting simulation
   const handleStartSimulation = useCallback(() => {
@@ -327,9 +332,10 @@ export default function SimulatorPage() {
           </div>
         </div>
 
-        {/* Historic Mode: Simple token selector */}
+        {/* Historic Mode: Token, Year Selection, and Compounding */}
         {state.marketConditions.dataMode === "historic" && (
-          <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
+          <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10 space-y-4">
+            {/* Token Selector */}
             <div className="flex items-center gap-4">
               <span className="text-sm text-white/60">Collateral:</span>
               <div className="flex gap-1">
@@ -354,6 +360,42 @@ export default function SimulatorPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Year Selection and Compounding */}
+            <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-white/10">
+              {/* Year Range Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-white/60">From:</span>
+                <select
+                  value={state.marketConditions.startYear ?? 2020}
+                  onChange={(e) => setStartYear(Number(e.target.value))}
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-cyan-400/50"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year} className="bg-slate-800">
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm text-white/60">To:</span>
+                <select
+                  value={state.marketConditions.endYear ?? 2020}
+                  onChange={(e) => setEndYear(Number(e.target.value))}
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-cyan-400/50"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year} className="bg-slate-800">
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Duration indicator */}
+              <span className="text-xs text-white/40 ml-auto">
+                {state.totalDays} days • ~1 min simulation
+              </span>
             </div>
           </div>
         )}
@@ -1111,75 +1153,123 @@ export default function SimulatorPage() {
               />
             </div>
 
-            {/* Main Grid */}
-            <div className="grid lg:grid-cols-2 gap-4 mb-6">
-              {/* Traditional Position */}
-              <PositionPanel
-                title="Traditional Lending"
-                subtitle="No auto-rebalancing"
-                type="traditional"
-                healthFactor={state.traditional.healthFactor}
-                collateral={state.traditional.collateralValueUSD}
-                collateralAmount={state.traditional.collateralAmount}
-                debt={state.traditional.debtAmount}
-                returns={state.traditional.totalReturns}
-                status={state.traditional.status}
-                interestPaid={state.traditional.accruedInterest}
-                earnedYield={state.traditional.earnedYield}
-                tokenSymbol={
-                  tokens.find(
-                    (t) => t.id === state.marketConditions.collateralToken
-                  )?.symbol || "TOKEN"
-                }
-                debtSymbol={
-                  debtTokens.find(
-                    (t) => t.id === state.marketConditions.debtToken
-                  )?.symbol || "USD"
-                }
-                minHealth={
-                  state.marketConditions.fcmMinHealth ??
-                  PROTOCOL_CONFIG.minHealth
-                }
-                targetHealth={
-                  state.marketConditions.fcmTargetHealth ??
-                  PROTOCOL_CONFIG.targetHealth
-                }
-              />
+            {/* Simulation Chart */}
+            {state.chartData.length > 0 && (
+              <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Collateral Value Over Time</h3>
+                    <p className="text-xs text-white/40">Traditional vs FCM lending comparison</p>
+                  </div>
+                  <div className="text-sm text-white/60">
+                    Day {state.currentDay} / {state.maxDay}
+                  </div>
+                </div>
+                <SimulationChart
+                  data={state.chartData}
+                  currentDay={state.currentDay}
+                  totalDays={state.totalDays}
+                />
+              </div>
+            )}
 
-              {/* FCM Position */}
-              <PositionPanel
-                title="FCM Lending"
-                subtitle="Auto-rebalancing enabled"
-                type="fcm"
-                healthFactor={state.fcm.healthFactor}
-                collateral={state.fcm.collateralValueUSD}
-                collateralAmount={state.fcm.collateralAmount}
-                debt={state.fcm.debtAmount}
-                returns={state.fcm.totalReturns}
-                status={state.fcm.status}
-                interestPaid={state.fcm.accruedInterest}
-                earnedYield={state.fcm.earnedYield}
-                rebalances={state.fcm.rebalanceCount}
-                tokenSymbol={
-                  tokens.find(
-                    (t) => t.id === state.marketConditions.collateralToken
-                  )?.symbol || "TOKEN"
-                }
-                debtSymbol={
-                  debtTokens.find(
-                    (t) => t.id === state.marketConditions.debtToken
-                  )?.symbol || "USD"
-                }
-                minHealth={
-                  state.marketConditions.fcmMinHealth ??
-                  PROTOCOL_CONFIG.minHealth
-                }
-                targetHealth={
-                  state.marketConditions.fcmTargetHealth ??
-                  PROTOCOL_CONFIG.targetHealth
-                }
+            {/* Show Details Toggle */}
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="w-full bg-white/5 rounded-xl p-3 mb-4 border border-white/10 flex items-center justify-center gap-2 text-white/60 hover:bg-white/10 hover:text-white transition-all"
+            >
+              <span className="text-sm font-medium">
+                {showDetails ? "Hide Position Details" : "Show Position Details"}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "w-4 h-4 transition-transform",
+                  showDetails && "rotate-180"
+                )}
               />
-            </div>
+            </button>
+
+            {/* Main Grid - Collapsible Details */}
+            <AnimatePresence>
+              {showDetails && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid lg:grid-cols-2 gap-4 mb-6">
+                    {/* Traditional Position */}
+                    <PositionPanel
+                      title="Traditional Lending"
+                      subtitle="No auto-rebalancing"
+                      type="traditional"
+                      healthFactor={state.traditional.healthFactor}
+                      collateral={state.traditional.collateralValueUSD}
+                      collateralAmount={state.traditional.collateralAmount}
+                      debt={state.traditional.debtAmount}
+                      returns={state.traditional.totalReturns}
+                      status={state.traditional.status}
+                      interestPaid={state.traditional.accruedInterest}
+                      earnedYield={state.traditional.earnedYield}
+                      tokenSymbol={
+                        tokens.find(
+                          (t) => t.id === state.marketConditions.collateralToken
+                        )?.symbol || "TOKEN"
+                      }
+                      debtSymbol={
+                        debtTokens.find(
+                          (t) => t.id === state.marketConditions.debtToken
+                        )?.symbol || "USD"
+                      }
+                      minHealth={
+                        state.marketConditions.fcmMinHealth ??
+                        PROTOCOL_CONFIG.minHealth
+                      }
+                      targetHealth={
+                        state.marketConditions.fcmTargetHealth ??
+                        PROTOCOL_CONFIG.targetHealth
+                      }
+                    />
+
+                    {/* FCM Position */}
+                    <PositionPanel
+                      title="FCM Lending"
+                      subtitle="Auto-rebalancing enabled"
+                      type="fcm"
+                      healthFactor={state.fcm.healthFactor}
+                      collateral={state.fcm.collateralValueUSD}
+                      collateralAmount={state.fcm.collateralAmount}
+                      debt={state.fcm.debtAmount}
+                      returns={state.fcm.totalReturns}
+                      status={state.fcm.status}
+                      interestPaid={state.fcm.accruedInterest}
+                      earnedYield={state.fcm.earnedYield}
+                      rebalances={state.fcm.rebalanceCount}
+                      tokenSymbol={
+                        tokens.find(
+                          (t) => t.id === state.marketConditions.collateralToken
+                        )?.symbol || "TOKEN"
+                      }
+                      debtSymbol={
+                        debtTokens.find(
+                          (t) => t.id === state.marketConditions.debtToken
+                        )?.symbol || "USD"
+                      }
+                      minHealth={
+                        state.marketConditions.fcmMinHealth ??
+                        PROTOCOL_CONFIG.minHealth
+                      }
+                      targetHealth={
+                        state.marketConditions.fcmTargetHealth ??
+                        PROTOCOL_CONFIG.targetHealth
+                      }
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Comparison Summary - Shows at end of simulation when traditional was liquidated */}
             {state.currentDay === state.maxDay &&
