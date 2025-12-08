@@ -117,7 +117,8 @@ export const TOOLTIPS: Record<string, TooltipContent> = {
   },
   maxHealth: {
     title: 'Maximum Health (1.6)',
-    content: 'When health rises above this threshold, FCM can borrow more to maximize capital efficiency. Keeps your money working!',
+    content: 'When health rises above this threshold, FCM automatically borrows more against excess collateral. This maximizes capital efficiency in bull markets through DrawDownSink.',
+    benefit: 'FCM outperforms traditional lending in both crashes AND bull runs',
   },
   effectiveCollateral: {
     title: 'Effective Collateral',

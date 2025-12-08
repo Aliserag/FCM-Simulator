@@ -1146,9 +1146,9 @@ export default function SimulatorPage() {
                 icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}
               />
               <StatCard
-                label="FCM Rebalances"
-                value={state.fcm.rebalanceCount.toString()}
-                subValue="Auto-protected"
+                label="FCM Actions"
+                value={`${state.fcm.rebalanceCount}↓ ${state.fcm.leverageUpCount ?? 0}↑`}
+                subValue={state.fcm.rebalanceCount > 0 ? "Protected" : state.fcm.leverageUpCount ? "Optimized" : "Monitoring"}
                 icon={<RefreshCw className="w-4 h-4 text-blue-400" />}
               />
             </div>
@@ -1247,6 +1247,7 @@ export default function SimulatorPage() {
                       interestPaid={state.fcm.accruedInterest}
                       earnedYield={state.fcm.earnedYield}
                       rebalances={state.fcm.rebalanceCount}
+                      leverageUps={state.fcm.leverageUpCount}
                       tokenSymbol={
                         tokens.find(
                           (t) => t.id === state.marketConditions.collateralToken
@@ -1497,6 +1498,7 @@ interface PositionPanelProps {
   interestPaid: number;
   earnedYield?: number;
   rebalances?: number;
+  leverageUps?: number;
   tokenSymbol: string;
   debtSymbol: string;
   minHealth: number;
@@ -1516,6 +1518,7 @@ function PositionPanel({
   interestPaid,
   earnedYield,
   rebalances,
+  leverageUps,
   tokenSymbol,
   debtSymbol,
   minHealth,
@@ -1666,12 +1669,24 @@ function PositionPanel({
             }
           />
         </div>
-        {isFCM && rebalances !== undefined && rebalances > 0 && (
-          <div className="flex items-center gap-2 text-xs text-blue-400 mt-2">
-            <RefreshCw className="w-3 h-3" />
-            <span>
-              {rebalances} auto-rebalance{rebalances > 1 ? "s" : ""} performed
-            </span>
+        {isFCM && (rebalances !== undefined && rebalances > 0 || leverageUps !== undefined && leverageUps > 0) && (
+          <div className="space-y-1 mt-2">
+            {rebalances !== undefined && rebalances > 0 && (
+              <div className="flex items-center gap-2 text-xs text-amber-400">
+                <RefreshCw className="w-3 h-3" />
+                <span>
+                  {rebalances} protective rebalance{rebalances > 1 ? "s" : ""} (↓ debt)
+                </span>
+              </div>
+            )}
+            {leverageUps !== undefined && leverageUps > 0 && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400">
+                <TrendingUp className="w-3 h-3" />
+                <span>
+                  {leverageUps} leverage up{leverageUps > 1 ? "s" : ""} (↑ borrowed)
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1734,7 +1749,9 @@ function EventRow({ event }: EventRowProps) {
       case "borrow":
         return <ArrowDownRight className="w-4 h-4" />;
       case "rebalance":
-        return <RefreshCw className="w-4 h-4 text-blue-400" />;
+        return <RefreshCw className="w-4 h-4 text-amber-400" />;
+      case "leverage_up":
+        return <TrendingUp className="w-4 h-4 text-emerald-400" />;
       case "liquidation":
         return <Skull className="w-4 h-4 text-red-400" />;
       case "scheduled":
@@ -1764,6 +1781,20 @@ function EventRow({ event }: EventRowProps) {
         >
           {event.action}
         </a>
+      );
+    }
+    if (event.type === "leverage_up") {
+      return (
+        <span className="text-sm text-emerald-400 font-medium">
+          {event.action}
+        </span>
+      );
+    }
+    if (event.type === "rebalance") {
+      return (
+        <span className="text-sm text-amber-400 font-medium">
+          {event.action}
+        </span>
       );
     }
     return <span className="text-sm text-white/60">{event.action}</span>;

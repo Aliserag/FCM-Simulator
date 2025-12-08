@@ -1,7 +1,7 @@
 import { SimulationEvent, PositionState, MarketConditions } from '@/types'
 import { PROTOCOL_CONFIG } from '@/lib/constants'
 import { generateId } from '@/lib/utils'
-import { getFCMRebalanceEvents } from './fcm'
+import { getFCMRebalanceEvents, FCMRebalanceEvent } from './fcm'
 import { getTokenPrice } from '@/data/historicPrices'
 import { calculatePriceAtDay, calculateHealthFactor, calculateInitialBorrow } from './calculations'
 
@@ -71,7 +71,7 @@ export function generateCreationEvents(
 }
 
 /**
- * Generate FCM rebalancing event
+ * Generate FCM rebalancing event (downward - repay debt)
  */
 export function generateRebalanceEvent(
   day: number,
@@ -86,7 +86,29 @@ export function generateRebalanceEvent(
     type: 'rebalance',
     action: 'Auto-rebalancing triggered',
     code: `pool.rebalancePosition(pid: 1, force: false)`,
-    details: `Rebalancing repaid ${repaidAmount.toFixed(2)} debt to restore health`,
+    details: `Rebalancing repaid $${repaidAmount.toFixed(2)} debt to restore health`,
+    healthBefore,
+    healthAfter,
+  }
+}
+
+/**
+ * Generate FCM leverage up event (upward - borrow more when overcollateralized)
+ */
+export function generateLeverageUpEvent(
+  day: number,
+  healthBefore: number,
+  healthAfter: number,
+  borrowedAmount: number
+): SimulationEvent {
+  return {
+    id: generateId(),
+    day,
+    position: 'fcm',
+    type: 'leverage_up',
+    action: 'Leveraged up (DrawDownSink)',
+    code: `pool.borrow(amount: ${borrowedAmount.toFixed(2)}) → DrawDownSink`,
+    details: `Health ${healthBefore.toFixed(2)} > ${PROTOCOL_CONFIG.maxHealth} - borrowed $${borrowedAmount.toFixed(2)} more to maximize returns`,
     healthBefore,
     healthAfter,
   }
@@ -189,8 +211,8 @@ export function generateAllEvents(
   const initialBorrow = calculateInitialBorrow(initialCollateral, basePrice, PROTOCOL_CONFIG.targetHealth)
   events.push(...generateCreationEvents(initialCollateral, initialBorrow, basePrice))
 
-  // Get FCM rebalance events with historic prices
-  const rebalanceEvents = getFCMRebalanceEvents(
+  // Get FCM rebalance events (both downward and upward) with historic prices
+  const fcmEvents = getFCMRebalanceEvents(
     initialCollateral,
     basePrice,
     targetPriceChangePercent,
@@ -199,11 +221,16 @@ export function generateAllEvents(
     marketConditions
   )
 
-  // Add rebalance events
-  for (const re of rebalanceEvents) {
-    // Add scheduled check before rebalance
-    events.push(generateScheduledCheckEvent(re.day, re.healthBefore, true))
-    events.push(generateRebalanceEvent(re.day, re.healthBefore, re.healthAfter, re.repaidAmount))
+  // Add rebalance and leverage up events
+  for (const re of fcmEvents) {
+    if (re.type === 'rebalance_down') {
+      // Add scheduled check before downward rebalance
+      events.push(generateScheduledCheckEvent(re.day, re.healthBefore, true))
+      events.push(generateRebalanceEvent(re.day, re.healthBefore, re.healthAfter, re.amount))
+    } else if (re.type === 'leverage_up') {
+      // Add leverage up event (upward rebalancing - borrow more)
+      events.push(generateLeverageUpEvent(re.day, re.healthBefore, re.healthAfter, re.amount))
+    }
   }
 
   // Add traditional warning events at key health thresholds using actual prices

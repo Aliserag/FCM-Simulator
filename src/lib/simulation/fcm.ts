@@ -40,6 +40,7 @@ interface FCMState {
   collateralAmount: number
   debtAmount: number
   rebalanceCount: number
+  leverageUpCount: number   // Number of upward leverage events (borrow more when overcollateralized)
   totalInterestPaid: number
   totalYieldEarned: number
   accumulatedYield: number  // Yield not yet used for debt repayment
@@ -141,6 +142,7 @@ export function simulateFCMPosition(
   // Get FCM thresholds from overrides or defaults
   const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
   const fcmMinHealth = marketConditions?.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth
+  const fcmMaxHealth = PROTOCOL_CONFIG.maxHealth // Max health for upward rebalancing
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
 
   // Get initial borrow amount at target health
@@ -157,6 +159,7 @@ export function simulateFCMPosition(
     collateralAmount: initialCollateral,
     debtAmount: initialBorrow,
     rebalanceCount: 0,
+    leverageUpCount: 0,
     totalInterestPaid: 0,
     totalYieldEarned: 0,
     accumulatedYield: 0,
@@ -185,16 +188,7 @@ export function simulateFCMPosition(
     state.debtAmount += dailyInterest
     state.totalInterestPaid += dailyInterest
 
-    // 3. FCM ALWAYS uses accumulated yield to pay down debt
-    // This is a core FCM protection feature - earned yield continuously reduces debt
-    // This happens regardless of compounding settings (FCM's automatic protection)
-    if (state.accumulatedYield > 0 && state.debtAmount > 0) {
-      const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
-      state.debtAmount -= yieldToApply
-      state.accumulatedYield -= yieldToApply
-    }
-
-    // 4. Calculate current health factor
+    // 3. Calculate current health factor FIRST (before yield application)
     const currentHealth = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
@@ -202,7 +196,16 @@ export function simulateFCMPosition(
       collateralFactor
     )
 
-    // 5. Check if rebalancing is needed (FCM's automatic protection)
+    // 4. Apply yield to debt ONLY when health is LOW (protection mode)
+    // When health >= targetHealth, retain yield for growth/leverage optimization
+    // This allows health to rise naturally and trigger leverage-up events in bull markets
+    if (currentHealth < fcmTargetHealth && state.accumulatedYield > 0 && state.debtAmount > 0) {
+      const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
+      state.debtAmount -= yieldToApply
+      state.accumulatedYield -= yieldToApply
+    }
+
+    // 5. Check if DOWNWARD rebalancing is needed (FCM's automatic protection)
     if (currentHealth < fcmMinHealth && currentHealth > 0) {
       // Health too low - FCM automatically repays debt to restore target health
       // This is the key FCM feature from the documentation:
@@ -237,6 +240,28 @@ export function simulateFCMPosition(
             state.rebalanceCount++
           }
         }
+      }
+    }
+
+    // 6. Check if UPWARD rebalancing is needed (overcollateralized - maximize capital efficiency)
+    // When health > maxHealth, FCM borrows more to restore health to target
+    // This maximizes returns in bull markets by increasing leverage (recursive)
+    if (currentHealth > fcmMaxHealth) {
+      // Calculate effective collateral at current price
+      const effectiveCollateral = state.collateralAmount * dayPrice * collateralFactor
+      // Calculate target debt to restore target health
+      const targetDebt = effectiveCollateral / fcmTargetHealth
+      const additionalBorrow = targetDebt - state.debtAmount
+
+      if (additionalBorrow > 0) {
+        // Borrow more and use funds to buy more collateral (recursive leverage)
+        // This is how real DeFi leverage works - borrowed stablecoins buy more BTC/ETH
+        // In FCM, DrawDownSink routes funds to strategies - we simulate direct reinvestment
+        state.debtAmount += additionalBorrow
+        // Buy more collateral with borrowed funds
+        const additionalCollateral = additionalBorrow / dayPrice
+        state.collateralAmount += additionalCollateral
+        state.leverageUpCount++
       }
     }
   }
@@ -286,11 +311,21 @@ export function simulateFCMPosition(
     accruedInterest: state.totalInterestPaid,
     earnedYield: state.totalYieldEarned,
     rebalanceCount: state.rebalanceCount,
+    leverageUpCount: state.leverageUpCount,
   }
 }
 
+// Event type for FCM rebalancing (both downward and upward)
+export interface FCMRebalanceEvent {
+  day: number
+  healthBefore: number
+  healthAfter: number
+  type: 'rebalance_down' | 'leverage_up'
+  amount: number  // repaidAmount for down, borrowedAmount for up
+}
+
 /**
- * Get rebalance events that occurred up to a given day
+ * Get all FCM rebalance events (both downward and upward) up to a given day
  */
 export function getFCMRebalanceEvents(
   initialCollateral: number,
@@ -299,12 +334,13 @@ export function getFCMRebalanceEvents(
   targetDay: number,
   borrowAPY: number,
   marketConditions?: MarketConditions
-): Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> {
-  const events: Array<{ day: number; healthBefore: number; healthAfter: number; repaidAmount: number }> = []
+): FCMRebalanceEvent[] {
+  const events: FCMRebalanceEvent[] = []
 
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
   const fcmMinHealth = marketConditions?.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth
   const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+  const fcmMaxHealth = PROTOCOL_CONFIG.maxHealth
 
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
@@ -338,14 +374,7 @@ export function getFCMRebalanceEvents(
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
     state.debtAmount += dailyInterest
 
-    // 3. Apply accumulated yield to debt (matching main simulation)
-    if (state.accumulatedYield > 0 && state.debtAmount > 0) {
-      const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
-      state.debtAmount -= yieldToApply
-      state.accumulatedYield -= yieldToApply
-    }
-
-    // Calculate health
+    // 3. Calculate health FIRST (before yield application)
     const healthBefore = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
@@ -353,7 +382,15 @@ export function getFCMRebalanceEvents(
       collateralFactor
     )
 
-    // Check for rebalancing
+    // 4. Apply yield to debt ONLY when health is LOW (protection mode)
+    // When health >= targetHealth, retain yield for growth/leverage optimization
+    if (healthBefore < fcmTargetHealth && state.accumulatedYield > 0 && state.debtAmount > 0) {
+      const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
+      state.debtAmount -= yieldToApply
+      state.accumulatedYield -= yieldToApply
+    }
+
+    // Check for DOWNWARD rebalancing (undercollateralized)
     if (healthBefore < fcmMinHealth && healthBefore > 0) {
       const repayAmount = calculateRebalanceRepayAmount(
         healthBefore,
@@ -380,9 +417,39 @@ export function getFCMRebalanceEvents(
             day: d,
             healthBefore,
             healthAfter,
-            repaidAmount: repayAmount,
+            type: 'rebalance_down',
+            amount: repayAmount,
           })
         }
+      }
+    }
+
+    // Check for UPWARD rebalancing (overcollateralized)
+    if (healthBefore > fcmMaxHealth) {
+      const effectiveCollateral = state.collateralAmount * dayPrice * collateralFactor
+      const targetDebt = effectiveCollateral / fcmTargetHealth
+      const additionalBorrow = targetDebt - state.debtAmount
+
+      if (additionalBorrow > 0) {
+        // Borrow more and buy more collateral (recursive leverage)
+        state.debtAmount += additionalBorrow
+        const additionalCollateral = additionalBorrow / dayPrice
+        state.collateralAmount += additionalCollateral
+
+        const healthAfter = calculateHealthFactor(
+          state.collateralAmount,
+          dayPrice,
+          state.debtAmount,
+          collateralFactor
+        )
+
+        events.push({
+          day: d,
+          healthBefore,
+          healthAfter,
+          type: 'leverage_up',
+          amount: additionalBorrow,
+        })
       }
     }
   }

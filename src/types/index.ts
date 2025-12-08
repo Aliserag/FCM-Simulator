@@ -10,7 +10,8 @@ export interface PositionState {
   totalReturns: number          // cumulative gains/losses in USD
   accruedInterest: number       // interest paid on debt
   earnedYield: number           // interest earned on collateral (FCM)
-  rebalanceCount: number        // number of rebalances (FCM only)
+  rebalanceCount: number        // number of rebalances down (FCM only)
+  leverageUpCount?: number      // number of leverage ups when overcollateralized (FCM only)
 }
 
 // Chart data point for visualization
@@ -31,7 +32,7 @@ export interface SimulationEvent {
   id: string
   day: number
   position: 'traditional' | 'fcm' | 'both'
-  type: 'create' | 'borrow' | 'rebalance' | 'liquidation' | 'interest' | 'scheduled' | 'warning'
+  type: 'create' | 'borrow' | 'rebalance' | 'leverage_up' | 'liquidation' | 'interest' | 'scheduled' | 'warning'
   action: string                // Human-readable action
   code: string                  // Code/function called
   details?: string              // Additional info
