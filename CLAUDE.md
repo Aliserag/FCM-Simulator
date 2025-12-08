@@ -152,6 +152,26 @@ if (currentHealth < fcmTargetHealth && state.accumulatedYield > 0) {
 
 **File**: `src/data/blackSwanEvents.ts`
 
+### DeFi Lending APY Rates
+
+Supply APY rates by year (used for yield calculations):
+
+| Year | Avg APY | Notes |
+|------|---------|-------|
+| 2020 | 2.5% | DeFi Summer started mid-year |
+| 2021 | 4.0% | Peak DeFi activity, high TVL |
+| 2022 | 3.0% | Bear market, LUNA/FTX crashes |
+| 2023 | 4.0% | Recovery period |
+| 2024 | 5.0% | Bull market return |
+| 2025 | 5.0% | Continued bull market |
+
+**Borrow APY**: 6.5% (typical Aave/Compound stablecoin borrow rate)
+
+**Data Sources**:
+- [Aavescan](https://aavescan.com/) - Historical lending rates
+- [The Block DeFi Data](https://www.theblock.co/data/decentralized-finance/cryptocurrency-lending)
+- [BIS Research on Aave V2](https://www.bis.org/publ/work1183.pdf)
+
 ---
 
 ## Simulated Mode

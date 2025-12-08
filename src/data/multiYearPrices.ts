@@ -12,14 +12,32 @@ export interface YearPriceData {
   avgYield: number // Average DeFi lending yield for the year
 }
 
-// Yearly yield data (prices now come from real data)
+/**
+ * Average DeFi lending supply APY by year
+ *
+ * These are estimated averages based on historical Aave/Compound rates:
+ * - BTC (WBTC): Typically 0.01-2% supply APY
+ * - ETH (WETH): Typically 1-4% supply APY
+ *
+ * Rates varied significantly based on market conditions:
+ * - 2020: Low rates early, increased after DeFi Summer
+ * - 2021: Peak DeFi activity, higher rates
+ * - 2022: Bear market, moderate rates
+ * - 2023-2024: Recovery, increasing rates
+ * - 2025: Bull market, elevated rates
+ *
+ * Sources:
+ * - Aavescan (aavescan.com) - Historical lending data
+ * - The Block DeFi Data (theblock.co/data/decentralized-finance)
+ * - BIS Research Paper on Aave V2 (bis.org/publ/work1183.pdf)
+ */
 export const YEARLY_DATA: YearPriceData[] = [
-  { year: 2020, avgYield: 0.025 },
-  { year: 2021, avgYield: 0.04 },
-  { year: 2022, avgYield: 0.03 },
-  { year: 2023, avgYield: 0.04 },
-  { year: 2024, avgYield: 0.05 },
-  { year: 2025, avgYield: 0.05 },
+  { year: 2020, avgYield: 0.025 },  // 2.5% - DeFi Summer started mid-year
+  { year: 2021, avgYield: 0.04 },   // 4.0% - Peak DeFi activity
+  { year: 2022, avgYield: 0.03 },   // 3.0% - Bear market, LUNA/FTX crashes
+  { year: 2023, avgYield: 0.04 },   // 4.0% - Recovery period
+  { year: 2024, avgYield: 0.05 },   // 5.0% - Bull market return
+  { year: 2025, avgYield: 0.05 },   // 5.0% - Continued bull market
 ]
 
 /**

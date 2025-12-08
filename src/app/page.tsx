@@ -247,34 +247,16 @@ export default function SimulatorPage() {
                 content={
                   <div className="space-y-2">
                     <p className="font-semibold text-white">
-                      Real 2020 Price Data
+                      Real Daily Price Data (2020-2025)
                     </p>
                     <p className="text-xs text-white/80 leading-relaxed">
-                      Actual crypto prices from January to December 2020,
-                      including the COVID crash in March and the bull run
-                      recovery.
+                      2,169 actual daily closing prices per token, including
+                      COVID crash (Mar 2020), LUNA collapse (May 2022), and FTX
+                      crash (Nov 2022).
                     </p>
-                    <a
-                      href="https://www.coingecko.com/en/coins/bitcoin/historical_data"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 underline mt-1"
-                    >
-                      Source: CoinGecko
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
+                    <p className="text-xs text-white/60">
+                      Source: Coinbase via CCXT library
+                    </p>
                   </div>
                 }
               >
@@ -1087,33 +1069,31 @@ export default function SimulatorPage() {
                     <div className="space-y-2">
                       <div>
                         <div className="font-semibold text-emerald-400">
-                          Supply APY
+                          Supply APY (by year)
                         </div>
-                        <div className="text-white/60">
-                          Based on 2020 Compound/Aave rates:
-                        </div>
-                        <ul className="list-disc list-inside text-white/40 ml-1">
-                          <li>BTC: ~2% (varied 0.1-5%)</li>
-                          <li>ETH: ~3% (varied 0.5-10%)</li>
+                        <ul className="text-white/60 ml-1 text-[10px] space-y-0.5">
+                          <li>2020: 2.5% • 2021: 4% (DeFi Summer)</li>
+                          <li>2022: 3% • 2023: 4%</li>
+                          <li>2024-25: 5% (bull market)</li>
                         </ul>
                       </div>
                       <div>
                         <div className="font-semibold text-red-400">
                           Borrow APY
                         </div>
-                        <div className="text-white/60">
-                          5% average DeFi lending rate
+                        <div className="text-white/60 text-[10px]">
+                          6.5% average (Aave/Compound typical rate)
                         </div>
                       </div>
                       <div className="text-white/40 text-[10px] pt-1 border-t border-white/10">
-                        Source:{" "}
+                        Rates based on historical Aave/Compound data.{" "}
                         <a
-                          href="https://www.theblock.co/data/decentralized-finance/cryptocurrency-lending"
+                          href="https://aavescan.com/"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:text-blue-300 underline"
                         >
-                          The Block DeFi Lending Data
+                          Aavescan
                         </a>
                       </div>
                     </div>
