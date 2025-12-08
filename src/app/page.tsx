@@ -1754,6 +1754,12 @@ function EventRow({ event }: EventRowProps) {
         return <TrendingUp className="w-4 h-4 text-emerald-400" />;
       case "liquidation":
         return <Skull className="w-4 h-4 text-red-400" />;
+      case "interest":
+        return <Clock className="w-4 h-4 text-slate-400" />;
+      case "yield_earned":
+        return <TrendingUp className="w-4 h-4 text-cyan-400" />;
+      case "yield_applied":
+        return <Shield className="w-4 h-4 text-emerald-400" />;
       case "scheduled":
         return <Timer className="w-4 h-4 text-amber-400" />;
       case "warning":
@@ -1793,6 +1799,27 @@ function EventRow({ event }: EventRowProps) {
     if (event.type === "rebalance") {
       return (
         <span className="text-sm text-amber-400 font-medium">
+          {event.action}
+        </span>
+      );
+    }
+    if (event.type === "interest") {
+      return (
+        <span className="text-sm text-slate-400">
+          {event.action}
+        </span>
+      );
+    }
+    if (event.type === "yield_earned") {
+      return (
+        <span className="text-sm text-cyan-400 font-medium">
+          {event.action}
+        </span>
+      );
+    }
+    if (event.type === "yield_applied") {
+      return (
+        <span className="text-sm text-emerald-400 font-medium">
           {event.action}
         </span>
       );

@@ -2,7 +2,7 @@ import { SimulationEvent, PositionState, MarketConditions } from '@/types'
 import { PROTOCOL_CONFIG } from '@/lib/constants'
 import { generateId } from '@/lib/utils'
 import { getFCMRebalanceEvents, FCMRebalanceEvent } from './fcm'
-import { getTokenPrice } from '@/data/historicPrices'
+import { getTokenPrice, getTokenSupplyAPY, getToken } from '@/data/historicPrices'
 import { calculatePriceAtDay, calculateHealthFactor, calculateInitialBorrow } from './calculations'
 
 /**
@@ -175,21 +175,65 @@ export function generateLiquidationEvent(
 }
 
 /**
- * Generate interest accrual event (periodic)
+ * Generate monthly interest summary event (periodic)
  */
-export function generateInterestEvent(
+export function generateMonthlyInterestEvent(
   day: number,
-  position: 'traditional' | 'fcm',
-  interestAmount: number
+  position: 'traditional' | 'fcm' | 'both',
+  interestAccrued: number,
+  borrowAPY: number
 ): SimulationEvent {
+  const month = Math.floor(day / 30)
   return {
     id: generateId(),
     day,
     position,
     type: 'interest',
-    action: 'Interest accrued',
-    code: `position.debtBalance += ${interestAmount.toFixed(4)} MOET`,
-    details: `Daily compound interest at ${(PROTOCOL_CONFIG.borrowAPY * 100).toFixed(1)}% APY`,
+    action: `Month ${month} Interest`,
+    code: `debt += $${interestAccrued.toFixed(2)} (${(borrowAPY * 100).toFixed(1)}% APY)`,
+    details: `Compound interest accrued on borrowed stablecoins`,
+  }
+}
+
+/**
+ * Generate yield earned event (FCM in growth mode)
+ */
+export function generateYieldEarnedEvent(
+  day: number,
+  yieldAmount: number,
+  supplyAPY: number,
+  tokenSymbol: string
+): SimulationEvent {
+  const month = Math.floor(day / 30)
+  return {
+    id: generateId(),
+    day,
+    position: 'fcm',
+    type: 'yield_earned',
+    action: `Month ${month} Yield Earned`,
+    code: `yield += $${yieldAmount.toFixed(2)} (${(supplyAPY * 100).toFixed(1)}% APY on ${tokenSymbol})`,
+    details: `Collateral yield retained for leverage optimization (health > 1.4)`,
+  }
+}
+
+/**
+ * Generate yield applied to debt event (FCM in protection mode)
+ */
+export function generateYieldAppliedEvent(
+  day: number,
+  yieldApplied: number,
+  healthBefore: number
+): SimulationEvent {
+  const month = Math.floor(day / 30)
+  return {
+    id: generateId(),
+    day,
+    position: 'fcm',
+    type: 'yield_applied',
+    action: `Month ${month} Yield → Debt`,
+    code: `debt -= $${yieldApplied.toFixed(2)} (auto-applied from yield)`,
+    details: `Health ${healthBefore.toFixed(2)} < 1.4 - yield automatically reduces debt`,
+    healthBefore,
   }
 }
 
@@ -246,6 +290,54 @@ export function generateAllEvents(
 
       if (healthAtDay < PROTOCOL_CONFIG.targetHealth && healthAtDay > PROTOCOL_CONFIG.liquidationThreshold) {
         events.push(generateTraditionalWarningEvent(wd, healthAtDay))
+      }
+    }
+  }
+
+  // Add monthly interest/yield summary events
+  const borrowAPY = marketConditions?.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY
+  const tokenSymbol = marketConditions?.collateralToken
+    ? (getToken(marketConditions.collateralToken)?.symbol ?? 'TOKEN')
+    : 'TOKEN'
+  const supplyAPY = marketConditions?.supplyAPY
+    ?? (marketConditions?.collateralToken
+      ? getTokenSupplyAPY(marketConditions.collateralToken)
+      : PROTOCOL_CONFIG.supplyAPY)
+  const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
+  const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+
+  const monthlyDays = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360]
+  let prevMonthDebt = initialBorrow
+  let prevMonthYield = 0
+  let cumulativeYieldApplied = 0
+
+  for (const monthDay of monthlyDays) {
+    if (monthDay <= day) {
+      // Calculate interest accrued this month (both positions)
+      const currentMonthDebt = initialBorrow * Math.pow(1 + borrowAPY / 365, monthDay)
+      const interestThisMonth = currentMonthDebt - prevMonthDebt
+      prevMonthDebt = currentMonthDebt
+
+      // Add monthly interest event (affects both positions)
+      events.push(generateMonthlyInterestEvent(monthDay, 'both', interestThisMonth, borrowAPY))
+
+      // Calculate FCM yield earned this month
+      const priceAtMonth = getPriceAtDay(monthDay, basePrice, marketConditions)
+      const collateralValueAtMonth = initialCollateral * priceAtMonth
+      const monthlyYield = (collateralValueAtMonth * supplyAPY) / 12 // Approximate monthly yield
+      const healthAtMonth = calculateHealthFactor(initialCollateral, priceAtMonth, currentMonthDebt, collateralFactor)
+
+      // FCM: Either yield is earned (growth mode) or applied to debt (protection mode)
+      if (healthAtMonth >= fcmTargetHealth) {
+        // Growth mode: yield is retained
+        events.push(generateYieldEarnedEvent(monthDay, monthlyYield, supplyAPY, tokenSymbol))
+        prevMonthYield += monthlyYield
+      } else if (prevMonthYield > 0 || monthlyYield > 0) {
+        // Protection mode: yield applied to debt
+        const yieldToApply = prevMonthYield + monthlyYield
+        events.push(generateYieldAppliedEvent(monthDay, yieldToApply, healthAtMonth))
+        cumulativeYieldApplied += yieldToApply
+        prevMonthYield = 0
       }
     }
   }

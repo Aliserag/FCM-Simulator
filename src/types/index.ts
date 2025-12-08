@@ -32,7 +32,7 @@ export interface SimulationEvent {
   id: string
   day: number
   position: 'traditional' | 'fcm' | 'both'
-  type: 'create' | 'borrow' | 'rebalance' | 'leverage_up' | 'liquidation' | 'interest' | 'scheduled' | 'warning'
+  type: 'create' | 'borrow' | 'rebalance' | 'leverage_up' | 'liquidation' | 'interest' | 'yield_earned' | 'yield_applied' | 'scheduled' | 'warning'
   action: string                // Human-readable action
   code: string                  // Code/function called
   details?: string              // Additional info
