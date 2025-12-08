@@ -17,7 +17,7 @@ export const PROTOCOL_CONFIG: ProtocolConfig = {
 // Simulation defaults
 export const SIMULATION_DEFAULTS = {
   maxDay: 365,
-  playSpeed: 10, // days per second when auto-playing
+  playSpeed: 40, // days per second when auto-playing (1x speed)
 }
 
 // Deposit amount presets (USD value)

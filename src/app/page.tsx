@@ -1320,10 +1320,10 @@ export default function SimulatorPage() {
 
                 <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
                   {[
-                    { label: "1x", value: 10 },
-                    { label: "2x", value: 20 },
-                    { label: "3x", value: 30 },
-                    { label: "4x", value: 40 },
+                    { label: "1x", value: 40 },
+                    { label: "2x", value: 80 },
+                    { label: "3x", value: 120 },
+                    { label: "4x", value: 160 },
                   ].map((speed) => (
                     <button
                       key={speed.value}
