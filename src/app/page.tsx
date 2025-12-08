@@ -1158,8 +1158,8 @@ export default function SimulatorPage() {
               <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold">Collateral Value Over Time</h3>
-                    <p className="text-xs text-white/40">Traditional vs FCM lending comparison</p>
+                    <h3 className="text-lg font-semibold">Position Equity Over Time</h3>
+                    <p className="text-xs text-white/40">Net position value (collateral − debt)</p>
                   </div>
                   <div className="text-sm text-white/60">
                     Day {state.currentDay} / {state.maxDay}
