@@ -127,18 +127,23 @@ if (currentHealth < fcmTargetHealth && state.accumulatedYield > 0) {
 ## Historic Mode - Real Price Data
 
 ### Data Source
-Real historical prices from **CoinGecko** for 2020-2025:
+**Real daily closing prices** from Coinbase (via CCXT library) for 2020-2025:
+- **2,169 actual daily prices per token**
+- Date range: January 1, 2020 - December 8, 2025
+- Accounts for leap years (2020, 2024)
 
-**File**: `src/data/multiYearPrices.ts`
+**Files**:
+- `src/data/realPrices.ts` - Raw daily price arrays (~36KB embedded data)
+- `src/data/multiYearPrices.ts` - Price lookup functions
 
-| Year | BTC Start | BTC End | ETH Start | ETH End | Pattern |
-|------|-----------|---------|-----------|---------|---------|
-| 2020 | $7,200 | $29,000 | $130 | $737 | crash (COVID) |
-| 2021 | $29,000 | $46,000 | $737 | $3,700 | bull |
-| 2022 | $46,000 | $16,500 | $3,700 | $1,200 | bear |
-| 2023 | $16,500 | $42,000 | $1,200 | $2,300 | bull |
-| 2024 | $42,000 | $93,000 | $2,300 | $3,400 | volatile |
-| 2025 | $93,000 | $100,000 | $3,400 | $3,800 | volatile |
+| Year | BTC Jan 1 | ETH Jan 1 | Days |
+|------|-----------|-----------|------|
+| 2020 | $7,174 | $130 | 366 (leap) |
+| 2021 | $29,412 | $730 | 365 |
+| 2022 | $46,311 | $3,682 | 365 |
+| 2023 | $16,530 | $1,195 | 365 |
+| 2024 | $42,266 | $2,281 | 366 (leap) |
+| 2025 | $93,429 | $3,329 | ~342 |
 
 ### Black Swan Events Marked on Chart
 - **COVID-19 Crash** (March 2020, Day 72): -47% in 26 days
@@ -146,13 +151,6 @@ Real historical prices from **CoinGecko** for 2020-2025:
 - **FTX Collapse** (November 2022): -25%
 
 **File**: `src/data/blackSwanEvents.ts`
-
-### Price Generation
-Each year has a "pattern" that shapes the price curve:
-- **crash**: Sharp early drop, slow recovery
-- **bull**: Gradual rise with pullbacks
-- **bear**: Sharp decline with dead cat bounces
-- **volatile**: V-shape or W-shape movements
 
 ---
 
@@ -201,7 +199,8 @@ Users can customize scenarios with:
 | `src/lib/simulation/calculations.ts` | Health factor, liquidation math |
 | `src/lib/simulation/engine.ts` | Orchestrates both simulations |
 | `src/lib/simulation/events.ts` | Transaction log event generation |
-| `src/data/multiYearPrices.ts` | 2020-2025 BTC/ETH price data |
+| `src/data/realPrices.ts` | Real daily BTC/ETH prices (2,169 per token) |
+| `src/data/multiYearPrices.ts` | Price lookup functions for multi-year mode |
 | `src/data/blackSwanEvents.ts` | COVID, LUNA, FTX crash dates |
 | `src/data/historicPrices.ts` | Token configs and single-year data |
 | `src/hooks/useSimulation.ts` | React state management |
