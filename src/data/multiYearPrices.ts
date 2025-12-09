@@ -124,12 +124,16 @@ export function getYearStartPrice(token: 'btc' | 'eth', year: number): number {
  * This is critical because 2025 data only goes up to December 8 (342 days),
  * not the full 365 days. Without this, simulations would run beyond available
  * data and cause phantom liquidations.
+ *
+ * We subtract 3 days as a safety buffer to ensure we end well before
+ * the edge of available data (ends ~Dec 5th instead of Dec 8th).
  */
 export function getTotalDays(startYear: number, endYear: number): number {
   // Get actual prices to determine real data availability
   // Both BTC and ETH have the same number of days
   const prices = getMultiYearPrices('btc', startYear, endYear)
-  return prices.length
+  // Subtract 3 days as safety buffer for end-of-data edge cases
+  return Math.max(1, prices.length - 3)
 }
 
 /**
