@@ -140,7 +140,7 @@ export function calculatePriceAtDay(
 
     case 'v_shape':
       // V-shaped pattern - sharp drop then strong recovery
-      // Drops to bottom at ~35% through, then recovers back to starting price
+      // Drops to bottom at ~35% through, then recovers strongly
       const bottomDay = 0.35
       if (progress < bottomDay) {
         // Sharp drop phase
@@ -148,11 +148,11 @@ export function calculatePriceAtDay(
         // Drop deeper than final value (oversell)
         trendChange = targetChange * 1.8 * Math.pow(dropProgress, 0.7)
       } else {
-        // Strong recovery phase - recover back to starting price
+        // Strong recovery phase
         const recoveryProgress = (progress - bottomDay) / (1 - bottomDay)
         const bottomValue = targetChange * 1.8
-        // Recover fully to starting price (0% change)
-        const recoveryTarget = 0
+        // Recover strongly - may even go positive
+        const recoveryTarget = targetChange * 0.3 // Recover most losses
         const recoveryAmount = recoveryTarget - bottomValue
         trendChange = bottomValue + recoveryAmount * Math.pow(recoveryProgress, 0.5)
       }
@@ -298,54 +298,4 @@ export function isLiquidatable(
   threshold: number = PROTOCOL_CONFIG.liquidationThreshold
 ): boolean {
   return healthFactor < threshold
-}
-
-/**
- * Calculate rolling volatility (annualized) from a price array
- * Uses standard deviation of daily returns over a window
- *
- * @param prices - Array of daily prices
- * @param currentDay - Current day index in the array
- * @param windowDays - Number of days to look back (default 30)
- * @returns Annualized volatility as a percentage (0-100+)
- */
-export function calculateVolatility(
-  prices: number[],
-  currentDay: number,
-  windowDays: number = 30
-): number {
-  // Need at least 2 prices to calculate returns
-  if (currentDay < 2 || prices.length < 2) return 0
-
-  // Get the price window (look back from currentDay)
-  const startDay = Math.max(0, currentDay - windowDays)
-  const endDay = Math.min(currentDay, prices.length - 1)
-
-  if (endDay - startDay < 2) return 0
-
-  // Calculate daily returns
-  const returns: number[] = []
-  for (let i = startDay + 1; i <= endDay; i++) {
-    const prevPrice = prices[i - 1]
-    const currPrice = prices[i]
-    if (prevPrice > 0) {
-      returns.push((currPrice - prevPrice) / prevPrice)
-    }
-  }
-
-  if (returns.length < 2) return 0
-
-  // Calculate mean return
-  const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length
-
-  // Calculate variance
-  const variance = returns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / returns.length
-
-  // Standard deviation of daily returns
-  const dailyStdDev = Math.sqrt(variance)
-
-  // Annualize (multiply by sqrt(365)) and convert to percentage
-  const annualizedVolatility = dailyStdDev * Math.sqrt(365) * 100
-
-  return annualizedVolatility
 }
