@@ -278,6 +278,56 @@ export function calculateNetReturns(
 }
 
 /**
+ * Calculate rolling volatility (annualized) from a price array
+ * Uses standard deviation of daily returns over a window
+ *
+ * @param prices - Array of daily prices
+ * @param currentDay - Current day index in the array
+ * @param windowDays - Number of days to look back (default 30)
+ * @returns Annualized volatility as a percentage (0-100+)
+ */
+export function calculateVolatility(
+  prices: number[],
+  currentDay: number,
+  windowDays: number = 30
+): number {
+  // Need at least 2 prices to calculate returns
+  if (currentDay < 2 || prices.length < 2) return 0
+
+  // Get the price window (look back from currentDay)
+  const startDay = Math.max(0, currentDay - windowDays)
+  const endDay = Math.min(currentDay, prices.length - 1)
+
+  if (endDay - startDay < 2) return 0
+
+  // Calculate daily returns
+  const returns: number[] = []
+  for (let i = startDay + 1; i <= endDay; i++) {
+    const prevPrice = prices[i - 1]
+    const currPrice = prices[i]
+    if (prevPrice > 0) {
+      returns.push((currPrice - prevPrice) / prevPrice)
+    }
+  }
+
+  if (returns.length < 2) return 0
+
+  // Calculate mean return
+  const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length
+
+  // Calculate variance
+  const variance = returns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / returns.length
+
+  // Standard deviation of daily returns
+  const dailyStdDev = Math.sqrt(variance)
+
+  // Annualize (multiply by sqrt(365)) and convert to percentage
+  const annualizedVolatility = dailyStdDev * Math.sqrt(365) * 100
+
+  return annualizedVolatility
+}
+
+/**
  * Check if position needs rebalancing (FCM specific)
  */
 export function needsRebalancing(
