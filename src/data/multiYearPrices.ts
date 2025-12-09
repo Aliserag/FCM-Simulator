@@ -119,14 +119,17 @@ export function getYearStartPrice(token: 'btc' | 'eth', year: number): number {
 
 /**
  * Calculate total days for a year range
- * Accounts for leap years
+ * Returns actual available data length, not calculated calendar days
+ *
+ * This is critical because 2025 data only goes up to December 8 (342 days),
+ * not the full 365 days. Without this, simulations would run beyond available
+ * data and cause phantom liquidations.
  */
 export function getTotalDays(startYear: number, endYear: number): number {
-  let totalDays = 0
-  for (let year = startYear; year <= endYear; year++) {
-    totalDays += getDaysInYear(year)
-  }
-  return totalDays
+  // Get actual prices to determine real data availability
+  // Both BTC and ETH have the same number of days
+  const prices = getMultiYearPrices('btc', startYear, endYear)
+  return prices.length
 }
 
 /**
