@@ -174,7 +174,7 @@ export function simulateFCMPosition(
       ? getTokenSupplyAPY(marketConditions.collateralToken)
       : PROTOCOL_CONFIG.supplyAPY)
 
-  // Get price array for volatility calculation (historic mode only)
+  // Get price array for volatility calculation
   let priceArray: number[] = []
   if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
     const startYear = marketConditions.startYear ?? 2020
@@ -182,11 +182,16 @@ export function simulateFCMPosition(
     if (marketConditions.collateralToken === 'btc' || marketConditions.collateralToken === 'eth') {
       priceArray = getMultiYearPrices(marketConditions.collateralToken, startYear, endYear)
     }
+  } else if (day > 0) {
+    // For simulated mode, generate price history for volatility calculation
+    for (let i = 0; i <= day; i++) {
+      priceArray.push(getPriceAtDay(i, basePrice, marketConditions))
+    }
   }
 
   // Track sustained growth for leverage-up
   let consecutiveUpDays = 0
-  const SUSTAINED_GROWTH_DAYS = 7  // Require 1 week of uptrend before leverage-up
+  const SUSTAINED_GROWTH_DAYS = 4  // Require 4 days of uptrend before leverage-up
   const MAX_VOLATILITY_FOR_LEVERAGE = 80  // Allow leverage-up in low-medium volatility
 
   // Simulate day by day - FCM monitors and rebalances continuously
@@ -457,13 +462,18 @@ export function getFCMRebalanceEvents(
       ? getTokenSupplyAPY(marketConditions.collateralToken)
       : PROTOCOL_CONFIG.supplyAPY)
 
-  // Get price array for volatility calculation (historic mode only)
+  // Get price array for volatility calculation
   let priceArray: number[] = []
   if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
     const startYear = marketConditions.startYear ?? 2020
     const endYear = marketConditions.endYear ?? 2020
     if (marketConditions.collateralToken === 'btc' || marketConditions.collateralToken === 'eth') {
       priceArray = getMultiYearPrices(marketConditions.collateralToken, startYear, endYear)
+    }
+  } else if (targetDay > 0) {
+    // For simulated mode, generate price history for volatility calculation
+    for (let i = 0; i <= targetDay; i++) {
+      priceArray.push(getPriceAtDay(i, basePrice, marketConditions))
     }
   }
 
@@ -475,7 +485,7 @@ export function getFCMRebalanceEvents(
 
   // Track sustained growth for leverage-up
   let consecutiveUpDays = 0
-  const SUSTAINED_GROWTH_DAYS = 7  // Require 1 week of uptrend before leverage-up
+  const SUSTAINED_GROWTH_DAYS = 4  // Require 4 days of uptrend before leverage-up
   const MAX_VOLATILITY_FOR_LEVERAGE = 80  // Allow leverage-up in low-medium volatility
 
   for (let d = 1; d <= targetDay; d++) {
