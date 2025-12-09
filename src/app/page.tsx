@@ -39,6 +39,7 @@ import { TOOLTIPS, PROTOCOL_CONFIG } from "@/lib/constants";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SimulationEvent } from "@/types";
 import { getTokenSupplyAPY, getToken } from "@/data/historicPrices";
+import { calculateLiquidationPrice } from "@/lib/simulation/calculations";
 import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { RebalanceToast } from "@/components/RebalanceToast";
 import { useCoinGeckoPrices } from "@/hooks/useCoinGeckoPrices";
@@ -297,7 +298,14 @@ export default function SimulatorPage() {
               >
                 <button
                   onClick={() => {
+                    // When switching to simulated mode, use live price as base
+                    const currentToken = state.marketConditions.collateralToken;
+                    const livePrice = livePrices[currentToken];
                     setDataMode("simulated");
+                    // Set the live price as base price for simulated mode
+                    if (livePrice) {
+                      setBasePrice(livePrice);
+                    }
                     setHasStarted(false);
                   }}
                   className={cn(
@@ -1027,10 +1035,7 @@ export default function SimulatorPage() {
                 value={formatCurrencyCompact(state.flowPrice)}
                 subValue={
                   state.marketConditions.dataMode === "simulated"
-                    ? `${formatPercent(priceChangePercent)} from $${
-                        state.marketConditions.basePrice ??
-                        PROTOCOL_CONFIG.baseFlowPrice
-                      }`
+                    ? `${formatPercent(priceChangePercent)} from ${formatCurrencyCompact(state.baseFlowPrice)}`
                     : formatPercent(priceChangePercent)
                 }
                 subValueColor={
@@ -1110,12 +1115,15 @@ export default function SimulatorPage() {
                   state.traditional.status === "liquidated"
                     ? "—"
                     : formatCurrencyCompact(
-                        state.traditional.debtAmount /
-                          (state.traditional.collateralAmount *
-                            (state.marketConditions.collateralFactor ??
-                              getToken(state.marketConditions.collateralToken)
-                                ?.collateralFactor ??
-                              PROTOCOL_CONFIG.collateralFactor))
+                        calculateLiquidationPrice(
+                          state.traditional.collateralAmount,
+                          state.traditional.debtAmount,
+                          state.marketConditions.collateralFactor ??
+                            getToken(state.marketConditions.collateralToken)
+                              ?.collateralFactor ??
+                            PROTOCOL_CONFIG.collateralFactor,
+                          PROTOCOL_CONFIG.liquidationThreshold
+                        )
                       )
                 }
                 subValue={

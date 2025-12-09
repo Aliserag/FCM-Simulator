@@ -45,8 +45,9 @@ export function initializeSimulation(
       day0Price = getTokenPrice(marketConditions.collateralToken, 0)
     }
   } else {
-    // Use override or default
-    day0Price = marketConditions.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice
+    // Simulated mode: Use basePrice override, or token's default, or fallback
+    const token = getToken(marketConditions.collateralToken)
+    day0Price = marketConditions.basePrice ?? token?.basePrice ?? PROTOCOL_CONFIG.baseFlowPrice
   }
 
   // Calculate token amount from USD value at day 0 price
