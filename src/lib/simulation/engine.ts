@@ -166,18 +166,12 @@ export function generateChartData(
     if (traditional.status === 'liquidated') traditionalLiquidated = true
     if (fcm.status === 'liquidated') fcmLiquidated = true
 
-    // Display position EQUITY (collateral - debt), not raw collateral value
-    // This shows the actual net worth of each position, which reveals FCM's advantage
-    // through recursive leverage (more collateral AND more debt = higher leveraged gains)
-    const traditionalEquity = traditional.collateralValueUSD - traditional.debtAmount
-    const fcmEquity = fcm.collateralValueUSD - fcm.debtAmount
-
     chartData.push({
       day,
       year,
       date,
-      traditionalValue: traditionalLiquidated ? 0 : traditionalEquity,
-      fcmValue: fcmLiquidated ? 0 : fcmEquity,
+      traditionalValue: traditionalLiquidated ? 0 : traditional.collateralValueUSD,
+      fcmValue: fcmLiquidated ? 0 : fcm.collateralValueUSD,
       price,
       liquidationPrice: liquidationValue,
       traditionalLiquidated,
