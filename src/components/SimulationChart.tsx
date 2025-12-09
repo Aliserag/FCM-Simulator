@@ -34,6 +34,7 @@ interface SimulationChartProps {
   startYear?: number
   endYear?: number
   showEventMarkers?: boolean
+  dataMode?: 'simulated' | 'historic'
 }
 
 // Format USD values
@@ -118,7 +119,9 @@ export default function SimulationChart({
   startYear: propStartYear,
   endYear: propEndYear,
   showEventMarkers = true,
+  dataMode = 'historic',
 }: SimulationChartProps) {
+  const isSimulated = dataMode === 'simulated'
   const [showLiquidationPopup, setShowLiquidationPopup] = useState(false)
   const liquidationShownRef = useRef(false)
 
@@ -169,24 +172,44 @@ export default function SimulationChart({
     maxValue * 1.1
   ]
 
-  // Generate year tick values for X-axis
-  const yearTicks: number[] = []
+  // Generate tick values for X-axis based on mode
+  const xAxisTicks: number[] = []
   const startYear = propStartYear ?? data[0]?.year ?? 2020
   const endYear = propEndYear ?? data[data.length - 1]?.year ?? 2025
 
-  // Get black swan events for this date range
-  const blackSwanEvents = showEventMarkers ? getEventsInRange(startYear, endYear) : []
-  for (let year = startYear; year <= endYear; year++) {
-    const dayIndex = (year - startYear) * 365
-    if (dayIndex <= totalDays) {
-      yearTicks.push(dayIndex)
+  // Get black swan events for this date range (only for historic mode)
+  const blackSwanEvents = (showEventMarkers && !isSimulated) ? getEventsInRange(startYear, endYear) : []
+
+  if (isSimulated) {
+    // For simulated mode: show day intervals (every ~90 days for 365 day sim)
+    const interval = Math.max(30, Math.floor(totalDays / 6))
+    for (let day = 0; day <= totalDays; day += interval) {
+      xAxisTicks.push(day)
+    }
+    // Ensure we include the last day
+    if (xAxisTicks[xAxisTicks.length - 1] !== totalDays) {
+      xAxisTicks.push(totalDays)
+    }
+  } else {
+    // For historic mode: show year labels
+    for (let year = startYear; year <= endYear; year++) {
+      const dayIndex = (year - startYear) * 365
+      if (dayIndex <= totalDays) {
+        xAxisTicks.push(dayIndex)
+      }
     }
   }
 
-  // Format X-axis tick to show year
+  // Format X-axis tick based on mode
   const formatXAxis = (day: number) => {
-    const year = startYear + Math.floor(day / 365)
-    return year.toString()
+    if (isSimulated) {
+      // Simulated mode: show "Day X" or just the day number
+      return `Day ${day}`
+    } else {
+      // Historic mode: show year
+      const year = startYear + Math.floor(day / 365)
+      return year.toString()
+    }
   }
 
   return (
@@ -212,10 +235,10 @@ export default function SimulationChart({
 
           <XAxis
             dataKey="day"
-            ticks={yearTicks}
+            ticks={xAxisTicks}
             tickFormatter={formatXAxis}
             stroke="#64748b"
-            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tick={{ fill: '#94a3b8', fontSize: 11 }}
             axisLine={{ stroke: '#475569' }}
           />
 

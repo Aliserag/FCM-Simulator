@@ -1159,6 +1159,7 @@ export default function SimulatorPage() {
                   totalDays={state.totalDays}
                   startYear={state.marketConditions.startYear ?? 2020}
                   endYear={state.marketConditions.endYear ?? 2020}
+                  dataMode={state.marketConditions.dataMode}
                 />
               </div>
             )}
