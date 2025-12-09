@@ -168,7 +168,7 @@ export default function SimulatorPage() {
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center">
           <span className="font-semibold">FCM Simulator</span>
           <span className="text-xs text-white/40 ml-2 hidden sm:inline">
-            Flow Credit Market
+            Flow Credit Markets
           </span>
         </div>
       </header>
@@ -180,7 +180,7 @@ export default function SimulatorPage() {
             Sleep through the next Crash. Wake up wealthy.
           </h1>
           <p className="text-white/60 text-lg mb-2 max-w-xl mx-auto">
-            Watch how Traditional DeFi compares to Flow Credit Market
+            Watch how Traditional DeFi compares to Flow Credit Markets
           </p>
 
           {/* Show Start Simulation button for Simulated mode before starting */}
@@ -1035,7 +1035,9 @@ export default function SimulatorPage() {
                 value={formatCurrencyCompact(state.flowPrice)}
                 subValue={
                   state.marketConditions.dataMode === "simulated"
-                    ? `${formatPercent(priceChangePercent)} from ${formatCurrencyCompact(state.baseFlowPrice)}`
+                    ? `${formatPercent(
+                        priceChangePercent
+                      )} from ${formatCurrencyCompact(state.baseFlowPrice)}`
                     : formatPercent(priceChangePercent)
                 }
                 subValueColor={
@@ -1135,8 +1137,16 @@ export default function SimulatorPage() {
               />
               <StatCard
                 label="FCM Actions"
-                value={`${state.fcm.rebalanceCount}↓ ${state.fcm.leverageUpCount ?? 0}↑`}
-                subValue={state.fcm.rebalanceCount > 0 ? "Protected" : state.fcm.leverageUpCount ? "Optimized" : "Monitoring"}
+                value={`${state.fcm.rebalanceCount}↓ ${
+                  state.fcm.leverageUpCount ?? 0
+                }↑`}
+                subValue={
+                  state.fcm.rebalanceCount > 0
+                    ? "Protected"
+                    : state.fcm.leverageUpCount
+                    ? "Optimized"
+                    : "Monitoring"
+                }
                 icon={<RefreshCw className="w-4 h-4 text-blue-400" />}
               />
             </div>
@@ -1146,8 +1156,12 @@ export default function SimulatorPage() {
               <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold">Position Equity Over Time</h3>
-                    <p className="text-xs text-white/40">Net position value (collateral − debt)</p>
+                    <h3 className="text-lg font-semibold">
+                      Position Equity Over Time
+                    </h3>
+                    <p className="text-xs text-white/40">
+                      Net position value (collateral − debt)
+                    </p>
                   </div>
                   <div className="text-sm text-white/60">
                     Day {state.currentDay} / {state.maxDay}
@@ -1170,7 +1184,9 @@ export default function SimulatorPage() {
               className="w-full bg-white/5 rounded-xl p-3 mb-4 border border-white/10 flex items-center justify-center gap-2 text-white/60 hover:bg-white/10 hover:text-white transition-all"
             >
               <span className="text-sm font-medium">
-                {showDetails ? "Hide Position Details" : "Show Position Details"}
+                {showDetails
+                  ? "Hide Position Details"
+                  : "Show Position Details"}
               </span>
               <ChevronDown
                 className={cn(
@@ -1660,26 +1676,30 @@ function PositionPanel({
             }
           />
         </div>
-        {isFCM && (rebalances !== undefined && rebalances > 0 || leverageUps !== undefined && leverageUps > 0) && (
-          <div className="space-y-1 mt-2">
-            {rebalances !== undefined && rebalances > 0 && (
-              <div className="flex items-center gap-2 text-xs text-amber-400">
-                <RefreshCw className="w-3 h-3" />
-                <span>
-                  {rebalances} protective rebalance{rebalances > 1 ? "s" : ""} (↓ debt)
-                </span>
-              </div>
-            )}
-            {leverageUps !== undefined && leverageUps > 0 && (
-              <div className="flex items-center gap-2 text-xs text-emerald-400">
-                <TrendingUp className="w-3 h-3" />
-                <span>
-                  {leverageUps} leverage up{leverageUps > 1 ? "s" : ""} (↑ borrowed)
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+        {isFCM &&
+          ((rebalances !== undefined && rebalances > 0) ||
+            (leverageUps !== undefined && leverageUps > 0)) && (
+            <div className="space-y-1 mt-2">
+              {rebalances !== undefined && rebalances > 0 && (
+                <div className="flex items-center gap-2 text-xs text-amber-400">
+                  <RefreshCw className="w-3 h-3" />
+                  <span>
+                    {rebalances} protective rebalance{rebalances > 1 ? "s" : ""}{" "}
+                    (↓ debt)
+                  </span>
+                </div>
+              )}
+              {leverageUps !== undefined && leverageUps > 0 && (
+                <div className="flex items-center gap-2 text-xs text-emerald-400">
+                  <TrendingUp className="w-3 h-3" />
+                  <span>
+                    {leverageUps} leverage up{leverageUps > 1 ? "s" : ""} (↑
+                    borrowed)
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
       </div>
     </div>
   );
@@ -1795,11 +1815,7 @@ function EventRow({ event }: EventRowProps) {
       );
     }
     if (event.type === "interest") {
-      return (
-        <span className="text-sm text-slate-400">
-          {event.action}
-        </span>
-      );
+      return <span className="text-sm text-slate-400">{event.action}</span>;
     }
     if (event.type === "yield_earned") {
       return (
