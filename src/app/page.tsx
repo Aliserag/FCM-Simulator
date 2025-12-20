@@ -184,8 +184,10 @@ export default function SimulatorPage() {
         setDataMode("historic");
       }
       setHasStarted(false);
+      // Reinitialize chart data after mode change
+      setTimeout(() => initChartData(), 0);
     },
-    [state.marketConditions.collateralToken, livePrices, setDataMode, setBasePrice]
+    [state.marketConditions.collateralToken, livePrices, setDataMode, setBasePrice, initChartData]
   );
 
   return (
@@ -847,12 +849,16 @@ export default function SimulatorPage() {
           <>
             {/* Sidebar + Chart Row */}
             <div className="flex gap-4 mb-6 items-stretch">
-              {/* Sidebar */}
+              {/* Sidebar (mobile renders above via internal component, desktop renders here) */}
               <Sidebar
                 dataMode={state.marketConditions.dataMode}
                 onDataModeChange={handleDataModeChange}
                 collateralToken={state.marketConditions.collateralToken}
-                onCollateralChange={setCollateralToken}
+                onCollateralChange={(tokenId) => {
+                  setCollateralToken(tokenId);
+                  // Reinitialize chart data after token change
+                  setTimeout(() => initChartData(), 0);
+                }}
                 availableTokens={
                   state.marketConditions.dataMode === "historic"
                     ? getHistoricTokens()
@@ -860,8 +866,14 @@ export default function SimulatorPage() {
                 }
                 startYear={state.marketConditions.startYear ?? 2020}
                 endYear={state.marketConditions.endYear ?? 2020}
-                onStartYearChange={setStartYear}
-                onEndYearChange={setEndYear}
+                onStartYearChange={(year) => {
+                  setStartYear(year);
+                  setTimeout(() => initChartData(), 0);
+                }}
+                onEndYearChange={(year) => {
+                  setEndYear(year);
+                  setTimeout(() => initChartData(), 0);
+                }}
                 availableYears={availableYears}
                 totalDays={state.totalDays}
                 initialDeposit={state.initialDeposit}
@@ -901,7 +913,7 @@ export default function SimulatorPage() {
                           Day {state.currentDay} / {state.maxDay}
                         </div>
                       </div>
-                      <div className="flex-1 min-h-0">
+                      <div className="flex-1 min-h-[378px]">
                         <SimulationChart
                           data={state.chartData}
                           currentDay={state.currentDay}
@@ -932,7 +944,10 @@ export default function SimulatorPage() {
                               )}
                             </button>
                             <button
-                              onClick={reset}
+                              onClick={() => {
+                                reset();
+                                setTimeout(() => initChartData(), 0);
+                              }}
                               className="w-8 h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.1)] transition-all"
                             >
                               <RotateCcw className="w-4 h-4" />
@@ -1135,7 +1150,7 @@ export default function SimulatorPage() {
             {/* Show Details Toggle */}
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="w-full bg-white/5 rounded-xl p-3 mb-4 border border-white/10 flex items-center justify-center gap-2 text-white/60 hover:bg-white/10 hover:text-white transition-all"
+              className="w-full bg-gradient-to-r from-[#161a1e] to-[#161a1e] rounded-md h-[46px] mb-4 border border-mint-glow shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)] flex items-center justify-center gap-2 text-[rgba(255,255,255,0.6)] hover:text-white transition-all"
             >
               <span className="text-sm font-medium">
                 {showDetails
@@ -1145,7 +1160,7 @@ export default function SimulatorPage() {
               <ChevronDown
                 className={cn(
                   "w-4 h-4 transition-transform",
-                  showDetails && "rotate-180"
+                  showDetails && "scale-y-[-1]"
                 )}
               />
             </button>
@@ -1338,20 +1353,20 @@ function StatCard({
   tooltipContent,
 }: StatCardProps) {
   const cardContent = (
-    <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-white/50">{label}</span>
+    <ShinyCard className="h-full" innerClassName="p-[13px] min-h-[96px] flex flex-col justify-between">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-[#6d7881]">{label}</span>
         {icon}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-lg font-semibold font-mono">{value}</span>
+        <span className="text-[22px] font-bold font-mono text-[#f3f6f8]">{value}</span>
         {subValue && (
-          <span className={cn("text-xs", subValueColor || "text-white/40")}>
+          <span className={cn("text-xs", subValueColor || "text-[#6d7881]")}>
             {subValue}
           </span>
         )}
       </div>
-    </div>
+    </ShinyCard>
   );
 
   if (tooltipContent) {

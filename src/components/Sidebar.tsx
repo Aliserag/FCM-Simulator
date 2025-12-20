@@ -76,7 +76,124 @@ export function Sidebar({
 }: SidebarProps) {
   const currentToken = availableTokens.find(t => t.id === collateralToken);
 
-  const sidebarContent = (
+  // Mobile horizontal layout
+  const mobileContent = (
+    <div className="lg:hidden mb-4">
+      <ShinyCard>
+        <div className="p-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Data Mode */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs text-text-muted">Mode</span>
+              <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
+                <button
+                  onClick={() => onDataModeChange("historic")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                    dataMode === "historic"
+                      ? "bg-bg-secondary border border-mint-glow text-text-primary shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)]"
+                      : "text-text-muted hover:text-text-secondary"
+                  )}
+                >
+                  Historic
+                </button>
+                <button
+                  onClick={() => onDataModeChange("simulated")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                    dataMode === "simulated"
+                      ? "bg-bg-secondary border border-mint-glow text-text-primary shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)]"
+                      : "text-text-muted hover:text-text-secondary"
+                  )}
+                >
+                  Simulated
+                </button>
+              </div>
+            </div>
+
+            {/* Collateral */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs text-text-muted">Collateral</span>
+              <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
+                {availableTokens.map((token) => (
+                  <button
+                    key={token.id}
+                    onClick={() => onCollateralChange(token.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                      collateralToken === token.id
+                        ? "bg-bg-secondary border border-mint-glow text-text-primary shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)]"
+                        : "text-text-muted hover:text-text-secondary"
+                    )}
+                  >
+                    {token.symbol}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Time Window (Historic mode only) */}
+            {dataMode === "historic" && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-text-muted">Time Window</span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={startYear}
+                    onChange={(e) => onStartYearChange(Number(e.target.value))}
+                    className="bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-1.5 text-xs font-medium text-text-primary focus:outline-none focus:border-mint/50"
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year} className="bg-bg-card">
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-text-muted text-xs">to</span>
+                  <select
+                    value={endYear}
+                    onChange={(e) => onEndYearChange(Number(e.target.value))}
+                    className="bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-1.5 text-xs font-medium text-text-primary focus:outline-none focus:border-mint/50"
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year} className="bg-bg-card">
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Position */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs text-text-muted">Position</span>
+              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 py-1.5">
+                <span className="text-mint font-semibold text-sm">
+                  ${initialDeposit.toLocaleString()} {currentToken?.symbol || "ETH"}
+                </span>
+                <ArrowRight className="w-3 h-3 text-text-muted" />
+                <span className="text-text-secondary text-sm">{debtSymbol}</span>
+              </div>
+            </div>
+
+            {/* Start Simulation Button */}
+            {onStartSimulation && (
+              <button
+                onClick={onStartSimulation}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all bg-mint text-bg-primary hover:bg-mint-hover ml-auto"
+              >
+                <Play className="w-4 h-4" />
+                Start
+              </button>
+            )}
+          </div>
+        </div>
+      </ShinyCard>
+    </div>
+  );
+
+  // Desktop sidebar content
+  const desktopContent = (
     <div className="flex flex-col h-full">
       <div className="flex flex-col gap-3 p-[17px] flex-1">
         {/* Data Mode Card */}
@@ -87,8 +204,8 @@ export function Sidebar({
               <div className="h-px bg-[rgba(255,255,255,0.05)]" />
               <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
                 <Tooltip
-                  position="right"
-                  className="!whitespace-normal w-72 text-left"
+                  position="bottom"
+                  className="!whitespace-normal w-64 text-left"
                   content={
                     <div className="space-y-2">
                       <p className="font-semibold text-white">
@@ -114,12 +231,12 @@ export function Sidebar({
                         : "text-text-muted hover:text-text-secondary"
                     )}
                   >
-                    Historic Data
+                    Historic
                   </button>
                 </Tooltip>
                 <Tooltip
-                  position="right"
-                  className="!whitespace-normal w-72 text-left"
+                  position="bottom"
+                  className="!whitespace-normal w-64 text-left"
                   content={
                     <div className="space-y-2">
                       <p className="font-semibold text-white">
@@ -255,25 +372,31 @@ export function Sidebar({
   );
 
   return (
-    <aside className="w-[240px] flex-shrink-0 hidden lg:block h-full">
-      {/* Shiny card wrapper for entire sidebar */}
-      <div className="relative rounded-xl overflow-hidden h-full">
-        {/* Outer glow/border effect */}
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[rgba(255,255,255,0.08)] via-[rgba(255,255,255,0.02)] to-transparent" />
+    <>
+      {/* Mobile layout - horizontal bar above chart */}
+      {mobileContent}
 
-        {/* Main card background */}
-        <div className="relative m-[1px] rounded-[11px] bg-gradient-to-b from-[#161a1e] to-[#111417] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.3)] h-[calc(100%-2px)]">
-          {/* Top highlight shine */}
-          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.1)] to-transparent" />
+      {/* Desktop layout - vertical sidebar */}
+      <aside className="w-[240px] flex-shrink-0 hidden lg:block h-full">
+        {/* Shiny card wrapper for entire sidebar */}
+        <div className="relative rounded-xl overflow-hidden h-full">
+          {/* Outer glow/border effect */}
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[rgba(255,255,255,0.08)] via-[rgba(255,255,255,0.02)] to-transparent" />
 
-          {/* Inner subtle gradient for depth */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] via-transparent to-black/[0.05] pointer-events-none rounded-[11px]" />
+          {/* Main card background */}
+          <div className="relative m-[1px] rounded-[11px] bg-gradient-to-b from-[#161a1e] to-[#111417] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.3)] h-[calc(100%-2px)]">
+            {/* Top highlight shine */}
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.1)] to-transparent" />
 
-          <div className="relative h-full">
-            {sidebarContent}
+            {/* Inner subtle gradient for depth */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] via-transparent to-black/[0.05] pointer-events-none rounded-[11px]" />
+
+            <div className="relative h-full">
+              {desktopContent}
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
