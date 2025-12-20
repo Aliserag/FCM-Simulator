@@ -79,14 +79,21 @@ body {
 .timeline-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--accent-mint, #35e5a0);
   cursor: pointer;
   border: 2px solid #0a0b0d;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .timeline-slider::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .timeline-slider::-webkit-slider-thumb:hover {
@@ -99,14 +106,21 @@ body {
 }
 
 .timeline-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--accent-mint, #35e5a0);
   cursor: pointer;
   border: 2px solid #0a0b0d;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   transition: transform 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .timeline-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .timeline-slider::-moz-range-thumb:hover {
@@ -117,16 +131,23 @@ body {
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 640px) {
+  input[type="range"] {
+    height: 6px;
+    border-radius: 3px;
+  }
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #3B82F6;
   cursor: pointer;
@@ -134,13 +155,27 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
+@media (min-width: 640px) {
+  input[type="range"]::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #3B82F6;
   cursor: pointer;
   border: none;
+}
+
+@media (min-width: 640px) {
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 /* Code blocks in transaction log */

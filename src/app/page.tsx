@@ -184,680 +184,48 @@ export default function SimulatorPage() {
         setDataMode("historic");
       }
       setHasStarted(false);
-      // Reinitialize chart data after mode change
-      setTimeout(() => initChartData(), 0);
     },
-    [state.marketConditions.collateralToken, livePrices, setDataMode, setBasePrice, initChartData]
+    [state.marketConditions.collateralToken, livePrices, setDataMode, setBasePrice]
   );
 
   return (
     <div className="min-h-screen bg-[#0a0b0d] text-white">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-[#0a0b0d]/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center">
-          <span className="font-semibold">FCM Simulator</span>
-          <span className="text-xs text-white/40 ml-2 hidden sm:inline">
-            Flow Credit Markets
-          </span>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Hero Section */}
-        <div className="mb-8 text-center">
-          {/* Logo pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] mb-4">
-            <div className="w-6 h-6 rounded-full bg-mint/20 flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-mint" />
+        <div className="mb-6 sm:mb-8 text-center">
+          {/* Logo pill - matches Figma */}
+          <div className="inline-flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-[#111417] mb-4 sm:mb-6">
+            <div className="px-3 sm:px-4 py-1 rounded-full bg-[rgba(53,229,160,0.1)]">
+              <span className="font-semibold text-white text-sm sm:text-base">FCM Simulator</span>
             </div>
-            <span className="font-semibold text-text-primary">FCM Simulator</span>
-            <span className="text-xs text-text-muted">Flow Credit Market</span>
+            <span className="text-[10px] sm:text-xs text-[rgba(255,255,255,0.4)] px-1 sm:px-2">Flow Credit Market</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3 text-text-primary">
-            Sleep through the next Crash.{" "}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4 text-white leading-tight">
+            Sleep through the next Crash.<br />
             <span className="text-mint">Wake up wealthy.</span>
           </h1>
-          <p className="text-text-secondary text-lg max-w-xl mx-auto">
+          <p className="text-[#a6b0b8] text-sm sm:text-lg max-w-xl mx-auto px-2">
             Watch how Traditional DeFi compares to Flow Credit Markets
           </p>
         </div>
 
-        {/* Simulated Mode: Full Configuration Section */}
-        {state.marketConditions.dataMode === "simulated" && !showResults && (
-          <div className="space-y-4 mb-6">
-            {/* Position Setup */}
-            <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-white/60" />
-                Configure Your Position
-              </h2>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Collateral Selection */}
-                <div>
-                  <label className="text-sm text-white/60 block mb-2">
-                    Collateral Asset
-                  </label>
-                  <div className="flex flex-wrap gap-1">
-                    {getSimulatedTokens().map((token) => {
-                      const isSelected =
-                        state.marketConditions.collateralToken === token.id;
-                      const price = livePrices[token.id];
-                      return (
-                        <Tooltip
-                          key={token.id}
-                          position="bottom"
-                          content={
-                            <div className="text-xs min-w-[140px]">
-                              <div className="font-semibold text-sm mb-2">
-                                {token.name}
-                              </div>
-                              <div className="space-y-1.5">
-                                <div className="flex justify-between">
-                                  <span className="text-white/50">Price</span>
-                                  <span className="font-mono">
-                                    $
-                                    {price?.toLocaleString(undefined, {
-                                      maximumFractionDigits: price < 1 ? 4 : 2,
-                                    }) ?? "—"}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-white/50">Max LTV</span>
-                                  <span className="font-mono">
-                                    {(token.collateralFactor * 100).toFixed(0)}%
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-white/50">
-                                    Supply APY
-                                  </span>
-                                  <span className="font-mono text-emerald-400">
-                                    +{(token.supplyAPY * 100).toFixed(1)}%
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          }
-                        >
-                          <button
-                            onClick={() => {
-                              setCollateralToken(token.id, price);
-                              setBasePrice(price);
-                            }}
-                            className={cn(
-                              "flex flex-col items-center px-2 py-1.5 rounded-lg text-sm font-medium transition-all border min-w-[60px]",
-                              isSelected
-                                ? "border-white/30 bg-white/10"
-                                : "border-transparent hover:bg-white/5"
-                            )}
-                            style={{
-                              borderColor: isSelected ? token.color : undefined,
-                            }}
-                          >
-                            <span
-                              style={{
-                                color: isSelected
-                                  ? token.color
-                                  : "rgba(255,255,255,0.7)",
-                              }}
-                            >
-                              {token.symbol}
-                            </span>
-                            <span className="text-[10px] text-white/40 font-mono">
-                              {pricesLoading
-                                ? "..."
-                                : `$${
-                                    price?.toLocaleString(undefined, {
-                                      maximumFractionDigits: price < 1 ? 2 : 0,
-                                    }) ?? "?"
-                                  }`}
-                            </span>
-                          </button>
-                        </Tooltip>
-                      );
-                    })}
-                    <button
-                      onClick={fetchPrices}
-                      disabled={pricesLoading}
-                      className="ml-1 px-2 py-1 text-[10px] text-cyan-400 hover:text-cyan-300 disabled:opacity-50"
-                      title="Refresh prices from CoinGecko"
-                    >
-                      {pricesLoading ? "..." : "↻"}
-                    </button>
-                    {usingFallback && (
-                      <span
-                        className="ml-2 text-[10px] text-amber-400"
-                        title="Using cached prices - CoinGecko unavailable"
-                      >
-                        ⚠ Cached
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Deposit Amount */}
-                <div>
-                  <label className="text-sm text-white/60 block mb-2">
-                    Deposit Amount (USD)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {depositPresets.map((amount) => (
-                      <button
-                        key={amount}
-                        onClick={() => setInitialDeposit(amount)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
-                          state.initialDeposit === amount
-                            ? "border-blue-500/50 bg-blue-500/20 text-blue-400"
-                            : "border-white/10 text-white/60 hover:border-white/20 hover:text-white"
-                        )}
-                      >
-                        ${amount.toLocaleString()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Debt Token Selection */}
-              <div className="mt-6 pt-6 border-t border-white/10">
-                <label className="text-sm text-white/60 block mb-2">
-                  Borrow Against (Debt Token)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {debtTokens.map((token) => {
-                    const isSelected =
-                      state.marketConditions.debtToken === token.id;
-                    return (
-                      <button
-                        key={token.id}
-                        onClick={() => setDebtToken(token.id)}
-                        className={cn(
-                          "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border",
-                          isSelected
-                            ? "border-white/30 bg-white/10"
-                            : "border-white/10 hover:border-white/20"
-                        )}
-                        style={{
-                          borderColor: isSelected ? token.color : undefined,
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: isSelected
-                              ? token.color
-                              : "rgba(255,255,255,0.7)",
-                          }}
-                        >
-                          {token.symbol}
-                        </span>
-                        <span className="text-xs text-white/40">
-                          {(token.borrowRate * 100).toFixed(1)}% APY
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Position Summary */}
-              <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-sm text-white/60 mb-2">
-                  Position Summary
-                </div>
-                <div className="text-white">
-                  You will deposit{" "}
-                  <span className="font-semibold text-blue-400">
-                    ${state.initialDeposit.toLocaleString()}
-                  </span>{" "}
-                  worth of{" "}
-                  <span
-                    className="font-semibold"
-                    style={{
-                      color: getToken(state.marketConditions.collateralToken)
-                        ?.color,
-                    }}
-                  >
-                    {getToken(state.marketConditions.collateralToken)?.symbol}
-                  </span>{" "}
-                  and borrow{" "}
-                  <span className="font-semibold text-emerald-400">
-                    $
-                    {Math.floor(
-                      (state.initialDeposit *
-                        (state.marketConditions.collateralFactor ??
-                          getToken(state.marketConditions.collateralToken)
-                            ?.collateralFactor ??
-                          0.8)) /
-                        (state.marketConditions.fcmTargetHealth ??
-                          PROTOCOL_CONFIG.targetHealth)
-                    ).toLocaleString()}
-                  </span>{" "}
-                  <span
-                    style={{
-                      color: getDebtToken(state.marketConditions.debtToken)
-                        ?.color,
-                    }}
-                  >
-                    {getDebtToken(state.marketConditions.debtToken)?.symbol}
-                  </span>{" "}
-                  at{" "}
-                  <span className="text-white/60">
-                    {(
-                      (state.marketConditions.collateralFactor ??
-                        getToken(state.marketConditions.collateralToken)
-                          ?.collateralFactor ??
-                        0.8) * 100
-                    ).toFixed(0)}
-                    % LTV
-                  </span>
-                </div>
-                <div className="text-xs text-white/40 mt-1">
-                  Borrow reduced by Target Health (
-                  {(
-                    state.marketConditions.fcmTargetHealth ??
-                    PROTOCOL_CONFIG.targetHealth
-                  ).toFixed(1)}
-                  ×) for safety margin
-                </div>
-              </div>
-            </div>
-
-            {/* Market Scenario */}
-            <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-              <div className="flex items-center gap-2 mb-4">
-                <Settings2 className="w-5 h-5 text-white/60" />
-                <span className="text-lg font-semibold">Market Scenario</span>
-              </div>
-
-              {/* Scenario Presets */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-                {scenarios.map((scenario) => (
-                  <button
-                    key={scenario.id}
-                    onClick={() => applyScenario(scenario)}
-                    className={cn(
-                      "px-3 py-2 rounded-lg text-sm font-medium transition-all border",
-                      state.marketConditions.priceChange ===
-                        scenario.priceChange
-                        ? "bg-white/10 border-white/20 text-white"
-                        : "bg-transparent border-white/10 text-white/60 hover:border-white/20 hover:text-white"
-                    )}
-                  >
-                    {scenario.name}
-                  </button>
-                ))}
-              </div>
-
-              {/* Sliders */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white/60">Price Change</span>
-                    <span
-                      className={cn(
-                        "font-mono",
-                        state.marketConditions.priceChange >= 0
-                          ? "text-emerald-400"
-                          : "text-red-400"
-                      )}
-                    >
-                      {formatPercent(state.marketConditions.priceChange, 0)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={-99}
-                    max={10000}
-                    value={state.marketConditions.priceChange}
-                    onChange={(e) => setPriceChange(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <div className="text-sm text-white/60 mb-2">Volatility</div>
-                  <div className="flex gap-1">
-                    {(["low", "medium", "high"] as const).map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => setVolatility(v)}
-                        className={cn(
-                          "flex-1 py-1.5 rounded text-xs font-medium capitalize transition-all",
-                          state.marketConditions.volatility === v
-                            ? "bg-white/10 text-white"
-                            : "text-white/40 hover:text-white/60"
-                        )}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Advanced Settings */}
-              <div className="border-t border-white/10 pt-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() =>
-                      setShowAdvancedSettings(!showAdvancedSettings)
-                    }
-                    className="flex items-center gap-2 text-left hover:bg-white/5 -mx-2 px-2 py-1 rounded transition-colors"
-                  >
-                    <Settings2 className="w-4 h-4 text-white/60" />
-                    <span className="text-sm font-medium text-white/80">
-                      Advanced Settings
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "w-4 h-4 text-white/40 transition-transform",
-                        showAdvancedSettings && "rotate-180"
-                      )}
-                    />
-                  </button>
-                  {showAdvancedSettings && (
-                    <button
-                      onClick={() => {
-                        setBorrowAPY(PROTOCOL_CONFIG.borrowAPY);
-                        setSupplyAPY(PROTOCOL_CONFIG.supplyAPY);
-                        setFcmMinHealth(PROTOCOL_CONFIG.minHealth);
-                        setFcmTargetHealth(PROTOCOL_CONFIG.targetHealth);
-                        setCollateralFactor(PROTOCOL_CONFIG.collateralFactor);
-                        setBasePrice(
-                          livePrices[state.marketConditions.collateralToken]
-                        );
-                      }}
-                      className="text-xs text-white/40 hover:text-white/60 transition-colors"
-                    >
-                      Reset All
-                    </button>
-                  )}
-                </div>
-
-                {showAdvancedSettings && (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                    {/* Token Starting Price */}
-                    <div>
-                      <label className="text-sm text-white/60 mb-2 block">
-                        {getToken(state.marketConditions.collateralToken)
-                          ?.symbol ?? "Token"}{" "}
-                        Starting Price
-                      </label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">
-                            $
-                          </span>
-                          <input
-                            type="number"
-                            value={
-                              state.marketConditions.basePrice ??
-                              livePrices[
-                                state.marketConditions.collateralToken
-                              ] ??
-                              100
-                            }
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (!isNaN(val) && val > 0) setBasePrice(val);
-                            }}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-3 py-2 font-mono text-sm focus:border-white/30 focus:outline-none"
-                            min={0.01}
-                            step="any"
-                          />
-                        </div>
-                        <button
-                          onClick={() =>
-                            setBasePrice(
-                              livePrices[state.marketConditions.collateralToken]
-                            )
-                          }
-                          className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors"
-                          title="Reset to live CoinGecko price"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Borrow APY */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">
-                          {getDebtToken(state.marketConditions.debtToken)
-                            ?.symbol ?? "Debt"}{" "}
-                          Borrow APY
-                        </span>
-                        <span className="font-mono text-red-400">
-                          {formatPercent(
-                            -(
-                              state.marketConditions.borrowAPY ??
-                              PROTOCOL_CONFIG.borrowAPY
-                            ) * 100,
-                            1
-                          )}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={20}
-                        step={0.5}
-                        value={
-                          (state.marketConditions.borrowAPY ??
-                            PROTOCOL_CONFIG.borrowAPY) * 100
-                        }
-                        onChange={(e) =>
-                          setBorrowAPY(Number(e.target.value) / 100)
-                        }
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Supply APY */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">
-                          {getToken(state.marketConditions.collateralToken)
-                            ?.symbol ?? "Collateral"}{" "}
-                          Supply APY
-                        </span>
-                        <span className="font-mono text-emerald-400">
-                          {formatPercent(
-                            (state.marketConditions.supplyAPY ??
-                              PROTOCOL_CONFIG.supplyAPY) * 100,
-                            1
-                          )}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={15}
-                        step={0.5}
-                        value={
-                          (state.marketConditions.supplyAPY ??
-                            PROTOCOL_CONFIG.supplyAPY) * 100
-                        }
-                        onChange={(e) =>
-                          setSupplyAPY(Number(e.target.value) / 100)
-                        }
-                        className="w-full"
-                      />
-                      {(state.marketConditions.supplyAPY ??
-                        PROTOCOL_CONFIG.supplyAPY) >
-                        (state.marketConditions.borrowAPY ??
-                          PROTOCOL_CONFIG.borrowAPY) && (
-                        <p className="text-[10px] text-amber-400 mt-1">
-                          ⚠ Supply APY &gt; Borrow APY creates unrealistic
-                          arbitrage
-                        </p>
-                      )}
-                    </div>
-
-                    {/* FCM Min Health */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">
-                          FCM Rebalance Trigger
-                        </span>
-                        <span className="font-mono">
-                          {(
-                            state.marketConditions.fcmMinHealth ??
-                            PROTOCOL_CONFIG.minHealth
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={1.05}
-                        max={1.5}
-                        step={0.05}
-                        value={
-                          state.marketConditions.fcmMinHealth ??
-                          PROTOCOL_CONFIG.minHealth
-                        }
-                        onChange={(e) => {
-                          const newMin = Number(e.target.value);
-                          const currentTarget =
-                            state.marketConditions.fcmTargetHealth ??
-                            PROTOCOL_CONFIG.targetHealth;
-                          setFcmMinHealth(newMin);
-                          if (newMin >= currentTarget) {
-                            setFcmTargetHealth(newMin + 0.2);
-                          }
-                        }}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* FCM Target Health */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">FCM Target Health</span>
-                        <span className="font-mono">
-                          {(
-                            state.marketConditions.fcmTargetHealth ??
-                            PROTOCOL_CONFIG.targetHealth
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={
-                          (state.marketConditions.fcmMinHealth ??
-                            PROTOCOL_CONFIG.minHealth) + 0.1
-                        }
-                        max={2.0}
-                        step={0.05}
-                        value={
-                          state.marketConditions.fcmTargetHealth ??
-                          PROTOCOL_CONFIG.targetHealth
-                        }
-                        onChange={(e) =>
-                          setFcmTargetHealth(Number(e.target.value))
-                        }
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* LTV (Collateral Factor) */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">
-                          LTV (Loan-to-Value)
-                        </span>
-                        <span className="font-mono">
-                          {(
-                            (state.marketConditions.collateralFactor ??
-                              PROTOCOL_CONFIG.collateralFactor) * 100
-                          ).toFixed(0)}
-                          %
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={50}
-                        max={90}
-                        step={5}
-                        value={
-                          (state.marketConditions.collateralFactor ??
-                            PROTOCOL_CONFIG.collateralFactor) * 100
-                        }
-                        onChange={(e) =>
-                          setCollateralFactor(Number(e.target.value) / 100)
-                        }
-                        className="w-full"
-                      />
-                      <p className="text-[10px] text-white/40 mt-1">
-                        Higher LTV = more borrowing power, higher liquidation
-                        risk
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Simulated Mode: Token selector when simulation is running */}
-        {state.marketConditions.dataMode === "simulated" && showResults && (
-          <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-white/60">Position:</span>
-                <span
-                  className="font-semibold"
-                  style={{
-                    color: getToken(state.marketConditions.collateralToken)
-                      ?.color,
-                  }}
-                >
-                  ${state.initialDeposit.toLocaleString()}{" "}
-                  {getToken(state.marketConditions.collateralToken)?.symbol}
-                </span>
-                <span className="text-white/40">→</span>
-                <span
-                  style={{
-                    color: getDebtToken(state.marketConditions.debtToken)
-                      ?.color,
-                  }}
-                >
-                  {getDebtToken(state.marketConditions.debtToken)?.symbol}
-                </span>
-              </div>
-              <button
-                onClick={() => {
-                  setHasStarted(false);
-                  reset();
-                }}
-                className="text-sm text-white/40 hover:text-white/60 transition-colors flex items-center gap-1"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reconfigure
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Results Section - show for Historic always, Simulated only when started */}
-        {(state.marketConditions.dataMode === "historic" || showResults) && (
-          <>
-            {/* Sidebar + Chart Row */}
-            <div className="flex gap-4 mb-6 items-stretch">
+        {/* Results Section */}
+        <>
+            {/* Sidebar + Chart Row - Stack on mobile, side-by-side on desktop */}
+            <div className="flex flex-col lg:flex-row gap-4 mb-6 lg:items-stretch">
               {/* Sidebar (mobile renders above via internal component, desktop renders here) */}
               <Sidebar
                 dataMode={state.marketConditions.dataMode}
                 onDataModeChange={handleDataModeChange}
                 collateralToken={state.marketConditions.collateralToken}
-                onCollateralChange={(tokenId) => {
-                  setCollateralToken(tokenId);
-                  // Reinitialize chart data after token change
-                  setTimeout(() => initChartData(), 0);
+                onCollateralChange={(tokenId, price) => {
+                  if (state.marketConditions.dataMode === "simulated" && price) {
+                    setCollateralToken(tokenId, price);
+                    setBasePrice(price);
+                  } else {
+                    setCollateralToken(tokenId);
+                  }
                 }}
                 availableTokens={
                   state.marketConditions.dataMode === "historic"
@@ -866,14 +234,8 @@ export default function SimulatorPage() {
                 }
                 startYear={state.marketConditions.startYear ?? 2020}
                 endYear={state.marketConditions.endYear ?? 2020}
-                onStartYearChange={(year) => {
-                  setStartYear(year);
-                  setTimeout(() => initChartData(), 0);
-                }}
-                onEndYearChange={(year) => {
-                  setEndYear(year);
-                  setTimeout(() => initChartData(), 0);
-                }}
+                onStartYearChange={setStartYear}
+                onEndYearChange={setEndYear}
                 availableYears={availableYears}
                 totalDays={state.totalDays}
                 initialDeposit={state.initialDeposit}
@@ -883,11 +245,23 @@ export default function SimulatorPage() {
                 }
                 onStartSimulation={handleStartSimulation}
                 isSimulationStarted={hasStarted || state.currentDay > 0}
+                // Simulated mode props
+                depositPresets={depositPresets}
+                onDepositChange={setInitialDeposit}
+                debtTokens={debtTokens}
+                selectedDebtToken={state.marketConditions.debtToken}
+                onDebtTokenChange={setDebtToken}
+                livePrices={livePrices}
+                pricesLoading={pricesLoading}
+                onRefreshPrices={fetchPrices}
+                usingFallback={usingFallback}
+                onBasePriceChange={setBasePrice}
               />
 
-              {/* Simulation Chart with Timeline Controls */}
-              {state.chartData.length > 0 && (
-                <div className="flex-1 relative rounded-xl overflow-hidden h-full">
+              {/* Simulation Chart with Timeline Controls + Position Summary */}
+              <div className="flex-1 flex flex-col gap-4">
+                {state.chartData.length > 0 && (
+                <div className="flex-1 relative rounded-xl overflow-hidden">
                   {/* Outer glow/border effect */}
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[rgba(255,255,255,0.08)] via-[rgba(255,255,255,0.02)] to-transparent" />
 
@@ -900,12 +274,12 @@ export default function SimulatorPage() {
                     <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] via-transparent to-black/[0.05] pointer-events-none rounded-[11px]" />
 
                     <div className="relative h-full flex flex-col">
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-text-primary">
+                          <h3 className="text-base sm:text-lg font-semibold text-text-primary">
                             Position Equity Over Time
                           </h3>
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-muted hidden sm:block">
                             Net position value (collateral − debt)
                           </p>
                         </div>
@@ -913,7 +287,7 @@ export default function SimulatorPage() {
                           Day {state.currentDay} / {state.maxDay}
                         </div>
                       </div>
-                      <div className="flex-1 min-h-[378px]">
+                      <div className="flex-1 min-h-[280px] sm:min-h-[378px]">
                         <SimulationChart
                           data={state.chartData}
                           currentDay={state.currentDay}
@@ -925,36 +299,33 @@ export default function SimulatorPage() {
                       </div>
 
                       {/* Timeline Control inside chart card */}
-                      <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
+                      <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-[rgba(255,255,255,0.05)]">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <button
                               onClick={isPlaying ? pause : play}
                               className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                                "w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all active:scale-95",
                                 isPlaying
                                   ? "bg-amber-500/20 text-amber-400"
                                   : "bg-mint/20 text-mint"
                               )}
                             >
                               {isPlaying ? (
-                                <Pause className="w-4 h-4" />
+                                <Pause className="w-5 h-5 sm:w-4 sm:h-4" />
                               ) : (
-                                <Play className="w-4 h-4" />
+                                <Play className="w-5 h-5 sm:w-4 sm:h-4" />
                               )}
                             </button>
                             <button
-                              onClick={() => {
-                                reset();
-                                setTimeout(() => initChartData(), 0);
-                              }}
-                              className="w-8 h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.1)] transition-all"
+                              onClick={reset}
+                              className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.1)] transition-all active:scale-95"
                             >
-                              <RotateCcw className="w-4 h-4" />
+                              <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
                             </button>
                           </div>
 
-                          <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.05)] rounded-lg p-1">
+                          <div className="flex items-center gap-0.5 sm:gap-1 bg-[rgba(255,255,255,0.05)] rounded-lg p-1">
                             {[
                               { label: "1x", value: 40 },
                               { label: "2x", value: 80 },
@@ -965,7 +336,7 @@ export default function SimulatorPage() {
                                 key={speed.value}
                                 onClick={() => setPlaySpeed(speed.value)}
                                 className={cn(
-                                  "px-2 py-1 rounded-md text-xs font-medium transition-all",
+                                  "px-2.5 sm:px-2 py-1.5 sm:py-1 rounded-md text-xs font-medium transition-all active:scale-95",
                                   playSpeed === speed.value
                                     ? "bg-[rgba(255,255,255,0.1)] text-text-primary"
                                     : "text-text-muted hover:text-text-secondary"
@@ -977,15 +348,15 @@ export default function SimulatorPage() {
                           </div>
                         </div>
 
-                        {/* Slider */}
-                        <div className="relative pt-1 pb-1">
+                        {/* Slider - taller on mobile for easier touch */}
+                        <div className="relative py-2">
                           <input
                             type="range"
                             min={0}
                             max={state.maxDay}
                             value={state.currentDay}
                             onChange={handleSliderChange}
-                            className="timeline-slider w-full h-1.5 rounded-full appearance-none cursor-pointer bg-[rgba(255,255,255,0.1)]"
+                            className="timeline-slider w-full h-2 sm:h-1.5 rounded-full appearance-none cursor-pointer bg-[rgba(255,255,255,0.1)]"
                             style={{
                               background: `linear-gradient(to right, #35e5a0 0%, #35e5a0 ${
                                 (state.currentDay / state.maxDay) * 100
@@ -1008,10 +379,307 @@ export default function SimulatorPage() {
                   </div>
                 </div>
               )}
+
+                {/* Position Summary - Simulated mode only, below chart */}
+                {state.marketConditions.dataMode === "simulated" && (
+                  <ShinyCard>
+                    <div className="px-4 py-3">
+                      {/* Mobile: stacked layout, Desktop: inline */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="text-sm text-text-primary flex flex-wrap items-center gap-x-1">
+                          <span className="text-text-muted">Deposit</span>
+                          <span className="font-semibold text-mint">
+                            ${state.initialDeposit.toLocaleString()}
+                          </span>
+                          <span
+                            className="font-semibold"
+                            style={{ color: getToken(state.marketConditions.collateralToken)?.color }}
+                          >
+                            {getToken(state.marketConditions.collateralToken)?.symbol}
+                          </span>
+                          <span className="text-text-muted mx-1">→</span>
+                          <span className="text-text-muted">Borrow</span>
+                          <span className="font-semibold text-mint">
+                            ${Math.floor(
+                              (state.initialDeposit *
+                                (state.marketConditions.collateralFactor ??
+                                  getToken(state.marketConditions.collateralToken)?.collateralFactor ?? 0.8)) /
+                                (state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth)
+                            ).toLocaleString()}
+                          </span>
+                          <span style={{ color: getDebtToken(state.marketConditions.debtToken)?.color }}>
+                            {getDebtToken(state.marketConditions.debtToken)?.symbol}
+                          </span>
+                        </div>
+                        <div className="text-xs text-text-muted">
+                          {((state.marketConditions.collateralFactor ??
+                            getToken(state.marketConditions.collateralToken)?.collateralFactor ?? 0.8) * 100).toFixed(0)}% LTV · {(state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth).toFixed(2)}× Target
+                        </div>
+                      </div>
+                    </div>
+                  </ShinyCard>
+                )}
+              </div>
             </div>
 
-            {/* Stats Bar */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+            {/* Market Scenario - Simulated mode only */}
+            {state.marketConditions.dataMode === "simulated" && (
+              <div className="mb-6">
+                <ShinyCard>
+                  <div className="p-4 sm:p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Settings2 className="w-5 h-5 text-text-muted" />
+                      <span className="text-base sm:text-lg font-semibold text-text-primary">Market Scenario</span>
+                    </div>
+
+                    {/* Scenario Presets - scrollable on very small screens */}
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+                      {scenarios.map((scenario) => (
+                        <button
+                          key={scenario.id}
+                          onClick={() => applyScenario(scenario)}
+                          className={cn(
+                            "px-2 sm:px-3 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all border active:scale-95",
+                            state.marketConditions.priceChange === scenario.priceChange
+                              ? "bg-bg-secondary border-mint-glow text-text-primary shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)]"
+                              : "bg-transparent border-[rgba(255,255,255,0.1)] text-text-muted hover:border-[rgba(255,255,255,0.2)] hover:text-text-secondary"
+                          )}
+                        >
+                          {scenario.name}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sliders */}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-text-muted">Price Change</span>
+                          <span
+                            className={cn(
+                              "font-mono",
+                              state.marketConditions.priceChange >= 0
+                                ? "text-mint"
+                                : "text-red-400"
+                            )}
+                          >
+                            {formatPercent(state.marketConditions.priceChange, 0)}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={-99}
+                          max={10000}
+                          value={state.marketConditions.priceChange}
+                          onChange={(e) => setPriceChange(Number(e.target.value))}
+                          className="w-full accent-mint h-2"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-text-muted mb-2">Volatility</div>
+                        <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
+                          {(["low", "medium", "high"] as const).map((v) => (
+                            <button
+                              key={v}
+                              onClick={() => setVolatility(v)}
+                              className={cn(
+                                "flex-1 py-2 sm:py-1.5 rounded-md text-xs font-medium capitalize transition-all active:scale-95",
+                                state.marketConditions.volatility === v
+                                  ? "bg-bg-secondary border border-mint-glow text-text-primary shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)]"
+                                  : "text-text-muted hover:text-text-secondary"
+                              )}
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Settings */}
+                    <div className="border-t border-[rgba(255,255,255,0.05)] pt-4 mt-4">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                          className="flex items-center gap-2 text-left hover:bg-[rgba(255,255,255,0.05)] -mx-2 px-2 py-1 rounded transition-colors"
+                        >
+                          <Settings2 className="w-4 h-4 text-text-muted" />
+                          <span className="text-sm font-medium text-text-secondary">
+                            Advanced Settings
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "w-4 h-4 text-text-muted transition-transform",
+                              showAdvancedSettings && "rotate-180"
+                            )}
+                          />
+                        </button>
+                        {showAdvancedSettings && (
+                          <button
+                            onClick={() => {
+                              setBorrowAPY(PROTOCOL_CONFIG.borrowAPY);
+                              setSupplyAPY(PROTOCOL_CONFIG.supplyAPY);
+                              setFcmMinHealth(PROTOCOL_CONFIG.minHealth);
+                              setFcmTargetHealth(PROTOCOL_CONFIG.targetHealth);
+                              setCollateralFactor(PROTOCOL_CONFIG.collateralFactor);
+                              setBasePrice(livePrices[state.marketConditions.collateralToken]);
+                            }}
+                            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                          >
+                            Reset All
+                          </button>
+                        )}
+                      </div>
+
+                      {showAdvancedSettings && (
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                          {/* Token Starting Price */}
+                          <div>
+                            <label className="text-sm text-text-muted mb-2 block">
+                              {getToken(state.marketConditions.collateralToken)?.symbol ?? "Token"} Starting Price
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">$</span>
+                                <input
+                                  type="number"
+                                  value={state.marketConditions.basePrice ?? livePrices[state.marketConditions.collateralToken] ?? 100}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val) && val > 0) setBasePrice(val);
+                                  }}
+                                  className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg pl-7 pr-3 py-2 font-mono text-sm focus:border-mint/50 focus:outline-none"
+                                  min={0.01}
+                                  step="any"
+                                />
+                              </div>
+                              <button
+                                onClick={() => setBasePrice(livePrices[state.marketConditions.collateralToken])}
+                                className="px-3 py-2 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-xs text-text-muted hover:bg-[rgba(255,255,255,0.1)] hover:text-text-secondary transition-colors"
+                              >
+                                Reset
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Borrow APY */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-text-muted">
+                                {getDebtToken(state.marketConditions.debtToken)?.symbol ?? "Debt"} Borrow APY
+                              </span>
+                              <span className="font-mono text-red-400">
+                                {formatPercent(-(state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY) * 100, 1)}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={1}
+                              max={20}
+                              step={0.5}
+                              value={(state.marketConditions.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY) * 100}
+                              onChange={(e) => setBorrowAPY(Number(e.target.value) / 100)}
+                              className="w-full accent-mint"
+                            />
+                          </div>
+
+                          {/* Supply APY */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-text-muted">
+                                {getToken(state.marketConditions.collateralToken)?.symbol ?? "Collateral"} Supply APY
+                              </span>
+                              <span className="font-mono text-mint">
+                                {formatPercent((state.marketConditions.supplyAPY ?? PROTOCOL_CONFIG.supplyAPY) * 100, 1)}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={0}
+                              max={15}
+                              step={0.5}
+                              value={(state.marketConditions.supplyAPY ?? PROTOCOL_CONFIG.supplyAPY) * 100}
+                              onChange={(e) => setSupplyAPY(Number(e.target.value) / 100)}
+                              className="w-full accent-mint"
+                            />
+                          </div>
+
+                          {/* FCM Min Health */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-text-muted">FCM Rebalance Trigger</span>
+                              <span className="font-mono text-text-primary">
+                                {(state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth).toFixed(2)}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={1.05}
+                              max={1.5}
+                              step={0.05}
+                              value={state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth}
+                              onChange={(e) => {
+                                const newMin = Number(e.target.value);
+                                const currentTarget = state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth;
+                                setFcmMinHealth(newMin);
+                                if (newMin >= currentTarget) {
+                                  setFcmTargetHealth(newMin + 0.2);
+                                }
+                              }}
+                              className="w-full accent-mint"
+                            />
+                          </div>
+
+                          {/* FCM Target Health */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-text-muted">FCM Target Health</span>
+                              <span className="font-mono text-text-primary">
+                                {(state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth).toFixed(2)}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={(state.marketConditions.fcmMinHealth ?? PROTOCOL_CONFIG.minHealth) + 0.1}
+                              max={2.0}
+                              step={0.05}
+                              value={state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth}
+                              onChange={(e) => setFcmTargetHealth(Number(e.target.value))}
+                              className="w-full accent-mint"
+                            />
+                          </div>
+
+                          {/* LTV */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-text-muted">LTV (Loan-to-Value)</span>
+                              <span className="font-mono text-text-primary">
+                                {((state.marketConditions.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor) * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={50}
+                              max={90}
+                              step={5}
+                              value={(state.marketConditions.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor) * 100}
+                              onChange={(e) => setCollateralFactor(Number(e.target.value) / 100)}
+                              className="w-full accent-mint"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </ShinyCard>
+              </div>
+            )}
+
+            {/* Stats Bar - Historic mode only */}
+            {state.marketConditions.dataMode === "historic" && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6">
               <StatCard
                 label="Day"
                 value={state.currentDay.toString()}
@@ -1146,11 +814,12 @@ export default function SimulatorPage() {
                 icon={<RefreshCw className="w-4 h-4 text-blue-400" />}
               />
             </div>
+            )}
 
             {/* Show Details Toggle */}
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="w-full bg-gradient-to-r from-[#161a1e] to-[#161a1e] rounded-md h-[46px] mb-4 border border-mint-glow shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)] flex items-center justify-center gap-2 text-[rgba(255,255,255,0.6)] hover:text-white transition-all"
+              className="w-full bg-gradient-to-r from-[#161a1e] to-[#161a1e] rounded-lg h-12 sm:h-[46px] mb-4 border border-mint-glow shadow-[0px_1px_4px_0px_rgba(0,0,0,0.4)] flex items-center justify-center gap-2 text-[rgba(255,255,255,0.6)] hover:text-white transition-all active:scale-[0.99]"
             >
               <span className="text-sm font-medium">
                 {showDetails
@@ -1289,8 +958,7 @@ export default function SimulatorPage() {
                 )}
               </div>
             </div>
-          </>
-        )}
+        </>
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-white/10 text-center text-sm text-white/40">

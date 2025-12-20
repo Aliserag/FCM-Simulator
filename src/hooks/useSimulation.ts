@@ -123,20 +123,36 @@ export function useSimulation(
   // Reset simulation
   const reset = useCallback(() => {
     pause()
-    setState(prev => resetSimulation(prev))
+    setState(prev => {
+      const resetState = resetSimulation(prev)
+      const chartData = generateChartData(resetState)
+      return { ...resetState, chartData }
+    })
   }, [pause])
 
   // Market condition setters
   const setPriceChange = useCallback((percent: number) => {
-    setState(prev => updateMarketConditions(prev, { priceChange: percent }))
+    setState(prev => {
+      const updated = updateMarketConditions(prev, { priceChange: percent })
+      const chartData = generateChartData(updated)
+      return { ...updated, chartData }
+    })
   }, [])
 
   const setVolatility = useCallback((volatility: 'low' | 'medium' | 'high') => {
-    setState(prev => updateMarketConditions(prev, { volatility }))
+    setState(prev => {
+      const updated = updateMarketConditions(prev, { volatility })
+      const chartData = generateChartData(updated)
+      return { ...updated, chartData }
+    })
   }, [])
 
   const setInterestRateChange = useCallback((percent: number) => {
-    setState(prev => updateMarketConditions(prev, { interestRateChange: percent }))
+    setState(prev => {
+      const updated = updateMarketConditions(prev, { interestRateChange: percent })
+      const chartData = generateChartData(updated)
+      return { ...updated, chartData }
+    })
   }, [])
 
   const setDataMode = useCallback((mode: 'simulated' | 'historic') => {
@@ -146,7 +162,9 @@ export function useSimulation(
         ...prev.marketConditions,
         dataMode: mode,
       })
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 
@@ -162,7 +180,9 @@ export function useSimulation(
         collateralToken: tokenId,
         basePrice: basePrice,
       })
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 
@@ -176,7 +196,9 @@ export function useSimulation(
         debtToken: tokenId,
         borrowAPY: borrowRate,
       })
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 
@@ -188,7 +210,9 @@ export function useSimulation(
         ...prev.marketConditions,
         borrowAPY: apy,
       })
-      return simulateToDay(newState, prev.currentDay)
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [])
 
@@ -198,7 +222,9 @@ export function useSimulation(
         ...prev.marketConditions,
         supplyAPY: apy,
       })
-      return simulateToDay(newState, prev.currentDay)
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [])
 
@@ -208,7 +234,9 @@ export function useSimulation(
         ...prev.marketConditions,
         basePrice: price,
       })
-      return simulateToDay(newState, prev.currentDay)
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [])
 
@@ -218,7 +246,9 @@ export function useSimulation(
         ...prev.marketConditions,
         fcmMinHealth: health,
       })
-      return simulateToDay(newState, prev.currentDay)
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [])
 
@@ -228,7 +258,9 @@ export function useSimulation(
         ...prev.marketConditions,
         fcmTargetHealth: health,
       })
-      return simulateToDay(newState, prev.currentDay)
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [])
 
@@ -238,7 +270,9 @@ export function useSimulation(
         ...prev.marketConditions,
         collateralFactor: factor,
       })
-      return simulateToDay(newState, prev.currentDay)
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [])
 
@@ -248,7 +282,10 @@ export function useSimulation(
       const newState = initializeSimulation(amount, {
         ...prev.marketConditions,
       })
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      // Regenerate chart data after settings change
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 
@@ -263,7 +300,9 @@ export function useSimulation(
         // Ensure endYear is at least startYear
         endYear: Math.max(year, currentEndYear),
       })
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 
@@ -277,7 +316,9 @@ export function useSimulation(
         // Ensure startYear is at most endYear
         startYear: Math.min(year, currentStartYear),
       })
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 
@@ -303,7 +344,9 @@ export function useSimulation(
         dataMode: 'simulated',
       })
       // Reset to day 0 when applying scenario
-      return simulateToDay(newState, 0)
+      const simulated = simulateToDay(newState, 0)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
     })
   }, [pause])
 

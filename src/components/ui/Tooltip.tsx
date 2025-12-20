@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, ReactNode, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -22,32 +23,68 @@ export function Tooltip({
   interactive = true,
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const [adjustedPosition, setAdjustedPosition] = useState<'left' | 'center' | 'right'>('center')
+  const [mounted, setMounted] = useState(false)
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const showTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const triggerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
 
-  // Check if tooltip would overflow and adjust position
-  const checkOverflow = useCallback(() => {
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Calculate tooltip position based on trigger element
+  const calculatePosition = useCallback(() => {
     if (!triggerRef.current) return
 
     const triggerRect = triggerRef.current.getBoundingClientRect()
-    const viewportWidth = window.innerWidth
-    const tooltipWidth = 280 // Approximate max tooltip width
+    const tooltipWidth = 280 // Max tooltip width
+    const tooltipHeight = 100 // Approximate tooltip height
+    const padding = 8
 
-    // Check left edge
-    if (triggerRect.left < tooltipWidth / 2) {
-      setAdjustedPosition('left')
+    let top = 0
+    let left = 0
+
+    switch (position) {
+      case 'top':
+        top = triggerRect.top - tooltipHeight - padding
+        left = triggerRect.left + triggerRect.width / 2 - tooltipWidth / 2
+        break
+      case 'bottom':
+        top = triggerRect.bottom + padding
+        left = triggerRect.left + triggerRect.width / 2 - tooltipWidth / 2
+        break
+      case 'left':
+        top = triggerRect.top + triggerRect.height / 2 - tooltipHeight / 2
+        left = triggerRect.left - tooltipWidth - padding
+        break
+      case 'right':
+        top = triggerRect.top + triggerRect.height / 2 - tooltipHeight / 2
+        left = triggerRect.right + padding
+        break
     }
-    // Check right edge
-    else if (viewportWidth - triggerRect.right < tooltipWidth / 2) {
-      setAdjustedPosition('right')
+
+    // Keep tooltip within viewport
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    // Horizontal bounds
+    if (left < padding) {
+      left = padding
+    } else if (left + tooltipWidth > viewportWidth - padding) {
+      left = viewportWidth - tooltipWidth - padding
     }
-    else {
-      setAdjustedPosition('center')
+
+    // Vertical bounds
+    if (top < padding) {
+      top = padding
+    } else if (top + tooltipHeight > viewportHeight - padding) {
+      top = viewportHeight - tooltipHeight - padding
     }
-  }, [])
+
+    setTooltipPosition({ top, left })
+  }, [position])
 
   const showTooltip = () => {
     // Clear any pending hide
@@ -58,7 +95,7 @@ export function Tooltip({
     // Show after delay
     if (!isVisible && !showTimeoutRef.current) {
       showTimeoutRef.current = setTimeout(() => {
-        checkOverflow()
+        calculatePosition()
         setIsVisible(true)
         showTimeoutRef.current = null
       }, delay)
@@ -87,6 +124,18 @@ export function Tooltip({
     }
   }
 
+  // Close tooltip on scroll
+  useEffect(() => {
+    if (!isVisible) return
+
+    const handleScroll = () => {
+      setIsVisible(false)
+    }
+
+    window.addEventListener('scroll', handleScroll, true)
+    return () => window.removeEventListener('scroll', handleScroll, true)
+  }, [isVisible])
+
   useEffect(() => {
     return () => {
       if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current)
@@ -94,49 +143,37 @@ export function Tooltip({
     }
   }, [])
 
-  // Position classes that adapt to viewport edges
-  const getPositionClasses = () => {
-    if (position === 'top' || position === 'bottom') {
-      const vertical = position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
-      switch (adjustedPosition) {
-        case 'left':
-          return `${vertical} left-0`
-        case 'right':
-          return `${vertical} right-0`
-        default:
-          return `${vertical} left-1/2 -translate-x-1/2`
-      }
-    }
-    // Left/right positions stay the same
-    return position === 'left'
-      ? 'right-full top-1/2 -translate-y-1/2 mr-2'
-      : 'left-full top-1/2 -translate-y-1/2 ml-2'
-  }
-
-  // Arrow classes that adapt to position
-  const getArrowClasses = () => {
-    if (position === 'top' || position === 'bottom') {
-      const vertical = position === 'top' ? 'top-full border-t-gray-900' : 'bottom-full border-b-gray-900'
-      switch (adjustedPosition) {
-        case 'left':
-          return `${vertical} left-4`
-        case 'right':
-          return `${vertical} right-4`
-        default:
-          return `${vertical} left-1/2 -translate-x-1/2`
-      }
-    }
-    return position === 'left'
-      ? 'left-full top-1/2 -translate-y-1/2 border-l-gray-900'
-      : 'right-full top-1/2 -translate-y-1/2 border-r-gray-900'
-  }
-
   const animationVariants = {
     top: { initial: { opacity: 0, y: 5 }, animate: { opacity: 1, y: 0 } },
     bottom: { initial: { opacity: 0, y: -5 }, animate: { opacity: 1, y: 0 } },
     left: { initial: { opacity: 0, x: 5 }, animate: { opacity: 1, x: 0 } },
     right: { initial: { opacity: 0, x: -5 }, animate: { opacity: 1, x: 0 } },
   }
+
+  const tooltipContent = isVisible && mounted && createPortal(
+    <AnimatePresence>
+      <motion.div
+        ref={tooltipRef}
+        initial={animationVariants[position].initial}
+        animate={animationVariants[position].animate}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className={cn(
+          'fixed z-[9999] max-w-[280px] rounded-lg bg-gray-900 px-3 py-2 text-sm text-white shadow-lg',
+          className
+        )}
+        style={{
+          top: tooltipPosition.top,
+          left: tooltipPosition.left,
+        }}
+        onMouseEnter={interactive ? cancelHide : undefined}
+        onMouseLeave={interactive ? hideTooltip : undefined}
+      >
+        {content}
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  )
 
   return (
     <div
@@ -148,33 +185,7 @@ export function Tooltip({
       onBlur={hideTooltip}
     >
       {children}
-      <AnimatePresence>
-        {isVisible && (
-          <motion.div
-            ref={tooltipRef}
-            initial={animationVariants[position].initial}
-            animate={animationVariants[position].animate}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className={cn(
-              'absolute z-50 max-w-[280px] rounded-lg bg-gray-900 px-3 py-2 text-sm text-white shadow-lg',
-              getPositionClasses(),
-              className
-            )}
-            onMouseEnter={interactive ? cancelHide : undefined}
-            onMouseLeave={interactive ? hideTooltip : undefined}
-          >
-            {content}
-            {/* Arrow */}
-            <div
-              className={cn(
-                'absolute h-0 w-0 border-4 border-transparent',
-                getArrowClasses()
-              )}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {tooltipContent}
     </div>
   )
 }
