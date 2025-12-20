@@ -62,31 +62,31 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   if (!data) return null
 
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl">
-      <p className="text-slate-400 text-xs mb-2">{data.date}</p>
+    <div className="bg-bg-card border border-[rgba(255,255,255,0.1)] rounded-lg p-3 shadow-[0px_4px_16px_0px_rgba(0,0,0,0.3)]">
+      <p className="text-text-muted text-xs mb-2">{data.date}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="text-slate-300 text-sm">FCM</span>
+            <span className="w-2 h-2 rounded-full bg-mint"></span>
+            <span className="text-text-secondary text-sm">FCM</span>
           </span>
-          <span className={`text-sm font-medium ${data.fcmLiquidated ? 'text-red-400 line-through' : 'text-emerald-400'}`}>
+          <span className={`text-sm font-medium ${data.fcmLiquidated ? 'text-danger line-through' : 'text-mint'}`}>
             {data.fcmLiquidated ? 'Liquidated' : formatUSD(data.fcmValue)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-500"></span>
-            <span className="text-slate-300 text-sm">Traditional</span>
+            <span className="w-2 h-2 rounded-full bg-danger"></span>
+            <span className="text-text-secondary text-sm">Traditional</span>
           </span>
-          <span className={`text-sm font-medium ${data.traditionalLiquidated ? 'text-red-400 line-through' : 'text-red-400'}`}>
+          <span className={`text-sm font-medium ${data.traditionalLiquidated ? 'text-danger line-through' : 'text-danger'}`}>
             {data.traditionalLiquidated ? 'Liquidated' : formatUSD(data.traditionalValue)}
           </span>
         </div>
-        <div className="border-t border-slate-700 pt-1.5 mt-1.5">
+        <div className="border-t border-[rgba(255,255,255,0.05)] pt-1.5 mt-1.5">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-slate-400 text-xs">Token Price</span>
-            <span className="text-slate-200 text-xs font-medium">
+            <span className="text-text-muted text-xs">Token Price</span>
+            <span className="text-text-primary text-xs font-medium">
               ${data.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
@@ -101,12 +101,12 @@ function CustomLegend() {
   return (
     <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mt-2">
       <div className="flex items-center gap-2">
-        <div className="w-4 h-0.5 bg-emerald-500"></div>
-        <span className="text-slate-400 text-sm">FCM (Auto-Protected)</span>
+        <div className="w-4 h-0.5 bg-mint"></div>
+        <span className="text-text-muted text-sm">FCM (Auto-Protected)</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="w-4 h-0.5 bg-red-500"></div>
-        <span className="text-slate-400 text-sm">Traditional DeFi Lending</span>
+        <div className="w-4 h-0.5 bg-danger"></div>
+        <span className="text-text-muted text-sm">Traditional DeFi Lending</span>
       </div>
     </div>
   )
@@ -307,7 +307,7 @@ export default function SimulationChart({
           <Line
             type="monotone"
             dataKey="traditionalValueOffset"
-            stroke="#ef4444"
+            stroke="#f87171"
             strokeWidth={2}
             dot={false}
             name="Traditional DeFi"
@@ -318,7 +318,7 @@ export default function SimulationChart({
           <Line
             type="monotone"
             dataKey="fcmValue"
-            stroke="#10b981"
+            stroke="#35e5a0"
             strokeWidth={2.5}
             dot={false}
             name="FCM"

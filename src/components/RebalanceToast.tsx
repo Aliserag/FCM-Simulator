@@ -20,14 +20,14 @@ export function RebalanceToast({ visible, healthBefore, healthAfter }: Rebalance
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           className="fixed bottom-6 right-6 z-50"
         >
-          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg px-4 py-3 backdrop-blur-sm shadow-lg">
+          <div className="bg-bg-card border border-mint/30 rounded-lg px-4 py-3 backdrop-blur-sm shadow-[0px_4px_16px_0px_rgba(0,0,0,0.3)]">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+              <div className="w-8 h-8 rounded-full bg-mint/20 flex items-center justify-center">
+                <RefreshCw className="w-4 h-4 text-mint animate-spin" />
               </div>
               <div>
-                <div className="text-sm font-medium text-blue-400">FCM Auto-Rebalanced</div>
-                <div className="text-xs text-white/60">
+                <div className="text-sm font-medium text-mint">FCM Auto-Rebalanced</div>
+                <div className="text-xs text-text-secondary">
                   Health: {healthBefore.toFixed(2)} → {healthAfter.toFixed(2)}
                 </div>
               </div>

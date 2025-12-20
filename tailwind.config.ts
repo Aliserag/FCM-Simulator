@@ -9,20 +9,39 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary accent - for interactive elements, CTAs, links
+        // Backgrounds
+        'bg-primary': '#0a0b0d',
+        'bg-card': '#111417',
+        'bg-secondary': '#161a1e',
+
+        // Primary accent - Mint green
+        mint: {
+          DEFAULT: '#35e5a0',
+          hover: '#4aeeb0',
+          glow: 'rgba(42, 250, 224, 0.1)',
+        },
+
+        // Legacy primary (blue) - keep for compatibility
         primary: {
           DEFAULT: '#3B82F6',
           hover: '#60A5FA',
           active: '#2563EB',
         },
-        // Semantic colors - 3 only (no purple)
-        success: '#10B981',
-        warning: '#F59E0B',
-        danger: '#EF4444',
+
+        // Semantic colors
+        success: '#35e5a0', // Updated to mint
+        warning: '#fbbf24',
+        danger: '#f87171',
+        info: '#60a5fa',
+
+        // Text colors
+        'text-primary': '#f3f6f8',
+        'text-secondary': '#a6b0b8',
+        'text-muted': '#6d7881',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'monospace'],
+        mono: ['Fira Code', 'JetBrains Mono', 'Menlo', 'Monaco', 'monospace'],
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

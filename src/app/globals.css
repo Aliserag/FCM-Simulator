@@ -2,14 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fira+Code:wght@400;500&display=swap');
 
 :root {
+  /* Backgrounds */
   --background: #0a0b0d;
+  --bg-card: #111417;
+  --bg-secondary: #161a1e;
+
+  /* Text */
   --foreground: #ffffff;
-  --card: #111213;
+  --text-primary: #f3f6f8;
+  --text-secondary: #a6b0b8;
+  --text-muted: #6d7881;
+
+  /* Accent Colors */
+  --accent-mint: #35e5a0;
+  --accent-teal-glow: rgba(42, 250, 224, 0.1);
+
+  /* Semantic */
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.05);
+  --border-light: rgba(255, 255, 255, 0.1);
+
+  /* Legacy (for compatibility) */
+  --card: #111417;
   --card-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
   --muted: rgba(255, 255, 255, 0.5);
 }
 
@@ -53,14 +75,14 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Timeline slider thumb - Blue primary color */
+/* Timeline slider thumb - Mint green accent */
 .timeline-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #3B82F6;
+  background: var(--accent-mint, #35e5a0);
   cursor: pointer;
   border: 2px solid #0a0b0d;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -69,7 +91,7 @@ body {
 
 .timeline-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 12px rgba(53, 229, 160, 0.4);
 }
 
 .timeline-slider::-webkit-slider-thumb:active {
@@ -80,7 +102,7 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #3B82F6;
+  background: var(--accent-mint, #35e5a0);
   cursor: pointer;
   border: 2px solid #0a0b0d;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -123,7 +145,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* Code blocks in transaction log */
 .code-block {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
   font-size: 0.875rem;
   background: rgba(255, 255, 255, 0.05);
   padding: 0.25rem 0.5rem;
@@ -170,10 +192,10 @@ input[type="range"]::-moz-range-thumb {
   animation: pulse-red 2s ease-in-out infinite;
 }
 
-/* Attention-grabbing pulse for play button */
+/* Attention-grabbing pulse for play button - Mint green */
 @keyframes pulse-attention {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
-  50% { box-shadow: 0 0 0 16px rgba(59, 130, 246, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(53, 229, 160, 0.5); }
+  50% { box-shadow: 0 0 0 16px rgba(53, 229, 160, 0); }
 }
 
 .animate-pulse-attention {

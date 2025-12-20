@@ -44,6 +44,8 @@ import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { RebalanceToast } from "@/components/RebalanceToast";
 import { useCoinGeckoPrices } from "@/hooks/useCoinGeckoPrices";
 import SimulationChart from "@/components/SimulationChart";
+import { Sidebar } from "@/components/Sidebar";
+import { ShinyCard } from "@/components/ui/ShinyCard";
 
 export default function SimulatorPage() {
   const {
@@ -80,6 +82,7 @@ export default function SimulatorPage() {
     getDebtToken,
     depositPresets,
     availableYears,
+    initChartData,
   } = useSimulation();
 
   // Live prices from CoinGecko (for simulated mode)
@@ -111,6 +114,11 @@ export default function SimulatorPage() {
 
   // Show results when simulation has started or is beyond day 0
   const showResults = hasStarted || state.currentDay > 0;
+
+  // Initialize chart data on mount so chart is visible by default
+  useEffect(() => {
+    initChartData();
+  }, [initChartData]);
 
   // Detect liquidation and show flash (no pause - let simulation continue to end)
   useEffect(() => {
@@ -161,6 +169,25 @@ export default function SimulatorPage() {
     );
   }, [state.flowPrice, state.baseFlowPrice]);
 
+  // Handler for data mode change
+  const handleDataModeChange = useCallback(
+    (mode: "historic" | "simulated") => {
+      if (mode === "simulated") {
+        // When switching to simulated mode, use live price as base
+        const currentToken = state.marketConditions.collateralToken;
+        const livePrice = livePrices[currentToken];
+        setDataMode("simulated");
+        if (livePrice) {
+          setBasePrice(livePrice);
+        }
+      } else {
+        setDataMode("historic");
+      }
+      setHasStarted(false);
+    },
+    [state.marketConditions.collateralToken, livePrices, setDataMode, setBasePrice]
+  );
+
   return (
     <div className="min-h-screen bg-[#0a0b0d] text-white">
       {/* Header */}
@@ -175,220 +202,24 @@ export default function SimulatorPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Hero Section */}
-        <div className="bg-gradient-to-b from-blue-500/5 via-blue-500/5 to-transparent rounded-2xl p-8 mb-8 text-center border border-white/5">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-            Sleep through the next Crash. Wake up wealthy.
+        <div className="mb-8 text-center">
+          {/* Logo pill */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] mb-4">
+            <div className="w-6 h-6 rounded-full bg-mint/20 flex items-center justify-center">
+              <Shield className="w-3.5 h-3.5 text-mint" />
+            </div>
+            <span className="font-semibold text-text-primary">FCM Simulator</span>
+            <span className="text-xs text-text-muted">Flow Credit Market</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3 text-text-primary">
+            Sleep through the next Crash.{" "}
+            <span className="text-mint">Wake up wealthy.</span>
           </h1>
-          <p className="text-white/60 text-lg mb-2 max-w-xl mx-auto">
+          <p className="text-text-secondary text-lg max-w-xl mx-auto">
             Watch how Traditional DeFi compares to Flow Credit Markets
           </p>
-
-          {/* Show Start Simulation button for Simulated mode before starting */}
-          {state.marketConditions.dataMode === "simulated" && !showResults && (
-            <button
-              onClick={handleStartSimulation}
-              className="inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold text-lg transition-all mt-4 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 animate-pulse-attention"
-            >
-              <Play className="w-6 h-6" />
-              Start Simulation
-            </button>
-          )}
-
-          {/* Show Try Again button when simulated mode simulation is complete */}
-          {state.marketConditions.dataMode === "simulated" &&
-            showResults &&
-            state.currentDay === state.maxDay && (
-              <button
-                onClick={() => {
-                  setHasStarted(false);
-                  reset();
-                }}
-                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold text-lg transition-all mt-4 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 animate-pulse-attention"
-              >
-                <RotateCcw className="w-6 h-6" />
-                Try Again
-              </button>
-            )}
-
-          {/* Show play/pause button for Historic mode, or Simulated mode in progress */}
-          {(state.marketConditions.dataMode === "historic" ||
-            (showResults && state.currentDay < state.maxDay)) && (
-            <button
-              onClick={isPlaying ? pause : play}
-              className={cn(
-                "inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold text-lg transition-all mt-4",
-                isPlaying
-                  ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-                  : "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 animate-pulse-attention"
-              )}
-            >
-              {isPlaying ? (
-                <>
-                  <Pause className="w-6 h-6" />
-                  Pause Simulation
-                </>
-              ) : (
-                <>
-                  <Play className="w-6 h-6" />
-                  {showResults ? "Resume Simulation" : "Start Simulation"}
-                </>
-              )}
-            </button>
-          )}
         </div>
-
-        {/* Data Mode Toggle */}
-        <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-white/60">Data Mode:</span>
-            <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-              <Tooltip
-                position="bottom"
-                className="!whitespace-normal w-72 text-left"
-                content={
-                  <div className="space-y-2">
-                    <p className="font-semibold text-white">
-                      Real Daily Price Data (2020-2025)
-                    </p>
-                    <p className="text-xs text-white/80 leading-relaxed">
-                      2,169 actual daily closing prices per token, including
-                      COVID crash (Mar 2020), LUNA collapse (May 2022), and FTX
-                      crash (Nov 2022).
-                    </p>
-                    <p className="text-xs text-white/60">
-                      Source: Coinbase via CCXT library
-                    </p>
-                  </div>
-                }
-              >
-                <button
-                  onClick={() => {
-                    setDataMode("historic");
-                    setHasStarted(false);
-                  }}
-                  className={cn(
-                    "px-3 py-1 rounded-md text-xs font-medium transition-all",
-                    state.marketConditions.dataMode === "historic"
-                      ? "bg-cyan-500/20 text-cyan-400"
-                      : "text-white/40 hover:text-white/60"
-                  )}
-                >
-                  Historic Data
-                </button>
-              </Tooltip>
-              <Tooltip
-                position="bottom"
-                className="!whitespace-normal w-72 text-left"
-                content={
-                  <div className="space-y-2">
-                    <p className="font-semibold text-white">
-                      Simulated Price Patterns
-                    </p>
-                    <p className="text-xs text-white/80 leading-relaxed">
-                      Synthetic price movements based on your settings. Adjust
-                      price change and volatility to model different market
-                      conditions.
-                    </p>
-                    <p className="text-xs text-white/60">
-                      Uses realistic price patterns with configurable
-                      volatility.
-                    </p>
-                  </div>
-                }
-              >
-                <button
-                  onClick={() => {
-                    // When switching to simulated mode, use live price as base
-                    const currentToken = state.marketConditions.collateralToken;
-                    const livePrice = livePrices[currentToken];
-                    setDataMode("simulated");
-                    // Set the live price as base price for simulated mode
-                    if (livePrice) {
-                      setBasePrice(livePrice);
-                    }
-                    setHasStarted(false);
-                  }}
-                  className={cn(
-                    "px-3 py-1 rounded-md text-xs font-medium transition-all",
-                    state.marketConditions.dataMode === "simulated"
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-white/40 hover:text-white/60"
-                  )}
-                >
-                  Simulated
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-
-        {/* Historic Mode: Token, Year Selection, and Compounding */}
-        {state.marketConditions.dataMode === "historic" && (
-          <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10 space-y-4">
-            {/* Token Selector */}
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-white/60">Collateral:</span>
-              <div className="flex gap-1">
-                {getHistoricTokens().map((token) => (
-                  <button
-                    key={token.id}
-                    onClick={() => setCollateralToken(token.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
-                      state.marketConditions.collateralToken === token.id
-                        ? "border-white/30 bg-white/10 text-white"
-                        : "border-transparent text-white/50 hover:text-white hover:bg-white/5"
-                    )}
-                    style={{
-                      borderColor:
-                        state.marketConditions.collateralToken === token.id
-                          ? token.color
-                          : undefined,
-                    }}
-                  >
-                    {token.symbol}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Year Selection and Compounding */}
-            <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-white/10">
-              {/* Year Range Selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-white/60">From:</span>
-                <select
-                  value={state.marketConditions.startYear ?? 2020}
-                  onChange={(e) => setStartYear(Number(e.target.value))}
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-cyan-400/50"
-                >
-                  {availableYears.map((year) => (
-                    <option key={year} value={year} className="bg-slate-800">
-                      {year}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-sm text-white/60">To:</span>
-                <select
-                  value={state.marketConditions.endYear ?? 2020}
-                  onChange={(e) => setEndYear(Number(e.target.value))}
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-cyan-400/50"
-                >
-                  {availableYears.map((year) => (
-                    <option key={year} value={year} className="bg-slate-800">
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Duration indicator */}
-              <span className="text-xs text-white/40 ml-auto">
-                {state.totalDays} days • ~1 min simulation
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* Simulated Mode: Full Configuration Section */}
         {state.marketConditions.dataMode === "simulated" && !showResults && (
@@ -1014,6 +845,156 @@ export default function SimulatorPage() {
         {/* Results Section - show for Historic always, Simulated only when started */}
         {(state.marketConditions.dataMode === "historic" || showResults) && (
           <>
+            {/* Sidebar + Chart Row */}
+            <div className="flex gap-4 mb-6 items-stretch">
+              {/* Sidebar */}
+              <Sidebar
+                dataMode={state.marketConditions.dataMode}
+                onDataModeChange={handleDataModeChange}
+                collateralToken={state.marketConditions.collateralToken}
+                onCollateralChange={setCollateralToken}
+                availableTokens={
+                  state.marketConditions.dataMode === "historic"
+                    ? getHistoricTokens()
+                    : getSimulatedTokens()
+                }
+                startYear={state.marketConditions.startYear ?? 2020}
+                endYear={state.marketConditions.endYear ?? 2020}
+                onStartYearChange={setStartYear}
+                onEndYearChange={setEndYear}
+                availableYears={availableYears}
+                totalDays={state.totalDays}
+                initialDeposit={state.initialDeposit}
+                debtSymbol={
+                  debtTokens.find((t) => t.id === state.marketConditions.debtToken)
+                    ?.symbol || "USDC"
+                }
+                onStartSimulation={handleStartSimulation}
+                isSimulationStarted={hasStarted || state.currentDay > 0}
+              />
+
+              {/* Simulation Chart with Timeline Controls */}
+              {state.chartData.length > 0 && (
+                <div className="flex-1 relative rounded-xl overflow-hidden h-full">
+                  {/* Outer glow/border effect */}
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[rgba(255,255,255,0.08)] via-[rgba(255,255,255,0.02)] to-transparent" />
+
+                  {/* Main card background */}
+                  <div className="relative m-[1px] rounded-[11px] bg-gradient-to-b from-[#161a1e] to-[#111417] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.3)] p-4 h-[calc(100%-2px)]">
+                    {/* Top highlight shine */}
+                    <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.1)] to-transparent" />
+
+                    {/* Inner subtle gradient for depth */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] via-transparent to-black/[0.05] pointer-events-none rounded-[11px]" />
+
+                    <div className="relative h-full flex flex-col">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary">
+                            Position Equity Over Time
+                          </h3>
+                          <p className="text-xs text-text-muted">
+                            Net position value (collateral − debt)
+                          </p>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          Day {state.currentDay} / {state.maxDay}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                        <SimulationChart
+                          data={state.chartData}
+                          currentDay={state.currentDay}
+                          totalDays={state.totalDays}
+                          startYear={state.marketConditions.startYear ?? 2020}
+                          endYear={state.marketConditions.endYear ?? 2020}
+                          dataMode={state.marketConditions.dataMode}
+                        />
+                      </div>
+
+                      {/* Timeline Control inside chart card */}
+                      <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={isPlaying ? pause : play}
+                              className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                                isPlaying
+                                  ? "bg-amber-500/20 text-amber-400"
+                                  : "bg-mint/20 text-mint"
+                              )}
+                            >
+                              {isPlaying ? (
+                                <Pause className="w-4 h-4" />
+                              ) : (
+                                <Play className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={reset}
+                              className="w-8 h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.1)] transition-all"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.05)] rounded-lg p-1">
+                            {[
+                              { label: "1x", value: 40 },
+                              { label: "2x", value: 80 },
+                              { label: "3x", value: 120 },
+                              { label: "4x", value: 160 },
+                            ].map((speed) => (
+                              <button
+                                key={speed.value}
+                                onClick={() => setPlaySpeed(speed.value)}
+                                className={cn(
+                                  "px-2 py-1 rounded-md text-xs font-medium transition-all",
+                                  playSpeed === speed.value
+                                    ? "bg-[rgba(255,255,255,0.1)] text-text-primary"
+                                    : "text-text-muted hover:text-text-secondary"
+                                )}
+                              >
+                                {speed.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Slider */}
+                        <div className="relative pt-1 pb-1">
+                          <input
+                            type="range"
+                            min={0}
+                            max={state.maxDay}
+                            value={state.currentDay}
+                            onChange={handleSliderChange}
+                            className="timeline-slider w-full h-1.5 rounded-full appearance-none cursor-pointer bg-[rgba(255,255,255,0.1)]"
+                            style={{
+                              background: `linear-gradient(to right, #35e5a0 0%, #35e5a0 ${
+                                (state.currentDay / state.maxDay) * 100
+                              }%, rgba(255,255,255,0.1) ${
+                                (state.currentDay / state.maxDay) * 100
+                              }%)`,
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex justify-between text-xs text-text-muted">
+                          <span>Day 0</span>
+                          <span className="text-text-primary font-medium">
+                            Day {state.currentDay}
+                          </span>
+                          <span>Day {state.maxDay}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Stats Bar */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
               <StatCard
@@ -1151,33 +1132,6 @@ export default function SimulatorPage() {
               />
             </div>
 
-            {/* Simulation Chart */}
-            {state.chartData.length > 0 && (
-              <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      Position Equity Over Time
-                    </h3>
-                    <p className="text-xs text-white/40">
-                      Net position value (collateral − debt)
-                    </p>
-                  </div>
-                  <div className="text-sm text-white/60">
-                    Day {state.currentDay} / {state.maxDay}
-                  </div>
-                </div>
-                <SimulationChart
-                  data={state.chartData}
-                  currentDay={state.currentDay}
-                  totalDays={state.totalDays}
-                  startYear={state.marketConditions.startYear ?? 2020}
-                  endYear={state.marketConditions.endYear ?? 2020}
-                  dataMode={state.marketConditions.dataMode}
-                />
-              </div>
-            )}
-
             {/* Show Details Toggle */}
             <button
               onClick={() => setShowDetails(!showDetails)}
@@ -1295,84 +1249,6 @@ export default function SimulatorPage() {
                   }
                 />
               )}
-
-            {/* Timeline Control */}
-            <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={isPlaying ? pause : play}
-                    className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
-                      isPlaying
-                        ? "bg-amber-500/20 text-amber-400"
-                        : "bg-blue-500/20 text-blue-400"
-                    )}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-5 h-5" />
-                    ) : (
-                      <Play className="w-5 h-5" />
-                    )}
-                  </button>
-                  <button
-                    onClick={reset}
-                    className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                  >
-                    <RotateCcw className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-                  {[
-                    { label: "1x", value: 40 },
-                    { label: "2x", value: 80 },
-                    { label: "3x", value: 120 },
-                    { label: "4x", value: 160 },
-                  ].map((speed) => (
-                    <button
-                      key={speed.value}
-                      onClick={() => setPlaySpeed(speed.value)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                        playSpeed === speed.value
-                          ? "bg-white/10 text-white"
-                          : "text-white/40 hover:text-white/60"
-                      )}
-                    >
-                      {speed.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Slider */}
-              <div className="relative pt-2 pb-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={state.maxDay}
-                  value={state.currentDay}
-                  onChange={handleSliderChange}
-                  className="timeline-slider w-full h-2 rounded-full appearance-none cursor-pointer bg-white/10"
-                  style={{
-                    background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${
-                      (state.currentDay / state.maxDay) * 100
-                    }%, rgba(255,255,255,0.1) ${
-                      (state.currentDay / state.maxDay) * 100
-                    }%)`,
-                  }}
-                />
-              </div>
-
-              <div className="flex justify-between text-xs text-white/40">
-                <span>Day 0</span>
-                <span className="text-white font-medium">
-                  Day {state.currentDay}
-                </span>
-                <span>Day {state.maxDay}</span>
-              </div>
-            </div>
 
             {/* Transaction Log */}
             <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
