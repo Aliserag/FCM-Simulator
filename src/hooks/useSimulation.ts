@@ -43,6 +43,7 @@ interface UseSimulationReturn {
   setBasePrice: (price: number) => void
   setFcmMinHealth: (health: number) => void
   setFcmTargetHealth: (health: number) => void
+  setFcmMaxHealth: (health: number) => void
   setInitialDeposit: (amount: number) => void
   setCollateralFactor: (factor: number) => void
 
@@ -264,6 +265,18 @@ export function useSimulation(
     })
   }, [])
 
+  const setFcmMaxHealth = useCallback((health: number) => {
+    setState(prev => {
+      const newState = initializeSimulation(prev.initialDeposit, {
+        ...prev.marketConditions,
+        fcmMaxHealth: health,
+      })
+      const simulated = simulateToDay(newState, prev.currentDay)
+      const chartData = generateChartData(simulated)
+      return { ...simulated, chartData }
+    })
+  }, [])
+
   const setCollateralFactor = useCallback((factor: number) => {
     setState(prev => {
       const newState = initializeSimulation(prev.initialDeposit, {
@@ -424,6 +437,7 @@ export function useSimulation(
     setBasePrice,
     setFcmMinHealth,
     setFcmTargetHealth,
+    setFcmMaxHealth,
     setInitialDeposit,
     setCollateralFactor,
     setStartYear,

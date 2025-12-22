@@ -1,5 +1,5 @@
 import { SimulationEvent, PositionState, MarketConditions } from '@/types'
-import { PROTOCOL_CONFIG } from '@/lib/constants'
+import { PROTOCOL_CONFIG, getFYVYieldRateForDay } from '@/lib/constants'
 import { generateId } from '@/lib/utils'
 import { getFCMRebalanceEvents, FCMRebalanceEvent } from './fcm'
 import { getTokenPrice, getTokenSupplyAPY, getToken } from '@/data/historicPrices'
@@ -237,6 +237,79 @@ export function generateYieldAppliedEvent(
   }
 }
 
+// ============================================================================
+// FYV (Flow Yield Vault) Event Generators
+// Per FCM Architecture: Borrowed MOET is deployed to FYV via DrawDownSink
+// Reference: /docs/FCM-REFERENCE.md
+// ============================================================================
+
+/**
+ * Generate FYV deployment event (MOET → FYV via DrawDownSink)
+ * Called when: Initial borrow or leverage-up
+ */
+export function generateFYVDeployEvent(
+  day: number,
+  amount: number,
+  isInitial: boolean
+): SimulationEvent {
+  return {
+    id: generateId(),
+    day,
+    position: 'fcm',
+    type: 'fyv_deploy',
+    action: isInitial ? 'MOET deployed to FYV' : 'Additional MOET → FYV',
+    code: `DrawDownSink.deposit(${amount.toFixed(2)}) → FYV.swap(MOET → YieldToken)`,
+    details: isInitial
+      ? `Initial borrow: $${amount.toFixed(2)} MOET deployed via DrawDownSink`
+      : `Leverage-up: $${amount.toFixed(2)} MOET deployed via DrawDownSink`,
+  }
+}
+
+/**
+ * Generate monthly FYV yield summary event
+ * Called monthly to show yield accumulated in FYV
+ */
+export function generateFYVYieldEvent(
+  day: number,
+  yieldAmount: number,
+  balance: number,
+  apy: number
+): SimulationEvent {
+  const month = Math.floor(day / 30)
+  return {
+    id: generateId(),
+    day,
+    position: 'fcm',
+    type: 'fyv_yield',
+    action: `Month ${month} FYV Yield: +$${yieldAmount.toFixed(2)}`,
+    code: `FYV.accumulateYield() → balance: $${balance.toFixed(2)}`,
+    details: `FYV earning ${(apy * 100).toFixed(0)}% APY on deployed MOET`,
+  }
+}
+
+/**
+ * Generate FYV withdrawal event (FYV → ALP via TopUpSource)
+ * Called when: Undercollateralized rebalancing needs liquidity
+ */
+export function generateFYVWithdrawEvent(
+  day: number,
+  amount: number,
+  healthBefore: number,
+  healthAfter: number
+): SimulationEvent {
+  return {
+    id: generateId(),
+    day,
+    position: 'fcm',
+    type: 'fyv_withdraw',
+    action: 'FYV provides liquidity for rebalancing',
+    code: `TopUpSource.withdraw(${amount.toFixed(2)}) → FYV.swap(YieldToken → MOET) → pool.repay()`,
+    details: `FYV provided $${amount.toFixed(2)} MOET via TopUpSource to restore health`,
+    healthBefore,
+    healthAfter,
+  }
+}
+
 /**
  * Generate all events for a simulation up to a given day
  */
@@ -255,6 +328,9 @@ export function generateAllEvents(
   const initialBorrow = calculateInitialBorrow(initialCollateral, basePrice, PROTOCOL_CONFIG.targetHealth)
   events.push(...generateCreationEvents(initialCollateral, initialBorrow, basePrice))
 
+  // FYV: Initial MOET deployment to FYV via DrawDownSink (per FCM architecture)
+  events.push(generateFYVDeployEvent(0, initialBorrow, true))
+
   // Get FCM rebalance events (both downward and upward) with historic prices
   const fcmEvents = getFCMRebalanceEvents(
     initialCollateral,
@@ -265,15 +341,26 @@ export function generateAllEvents(
     marketConditions
   )
 
-  // Add rebalance and leverage up events
+  // Add rebalance and leverage up events with FYV interactions
   for (const re of fcmEvents) {
     if (re.type === 'rebalance_down') {
       // Add scheduled check before downward rebalance
       events.push(generateScheduledCheckEvent(re.day, re.healthBefore, true))
+
+      // If FYV provided liquidity via TopUpSource, add that event first
+      if (re.fyvWithdrawn && re.fyvWithdrawn > 0) {
+        events.push(generateFYVWithdrawEvent(re.day, re.fyvWithdrawn, re.healthBefore, re.healthAfter))
+      }
+
       events.push(generateRebalanceEvent(re.day, re.healthBefore, re.healthAfter, re.amount))
     } else if (re.type === 'leverage_up') {
       // Add leverage up event (upward rebalancing - borrow more)
       events.push(generateLeverageUpEvent(re.day, re.healthBefore, re.healthAfter, re.amount))
+
+      // FYV: Additional MOET deployed to FYV via DrawDownSink
+      if (re.fyvDeployed && re.fyvDeployed > 0) {
+        events.push(generateFYVDeployEvent(re.day, re.fyvDeployed, false))
+      }
     }
   }
 
@@ -306,10 +393,18 @@ export function generateAllEvents(
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
   const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
 
+  // Determine start year for FYV yield rate lookup
+  const startYear = marketConditions?.dataMode === 'historic'
+    ? (marketConditions?.startYear ?? 2020)
+    : 2024 // Default year for simulated mode
+
   const monthlyDays = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360]
   let prevMonthDebt = initialBorrow
   let prevMonthYield = 0
   let cumulativeYieldApplied = 0
+  // Track approximate FYV balance for monthly yield summaries
+  let approxFYVBalance = initialBorrow
+  let prevFYVYield = 0
 
   for (const monthDay of monthlyDays) {
     if (monthDay <= day) {
@@ -339,6 +434,15 @@ export function generateAllEvents(
         cumulativeYieldApplied += yieldToApply
         prevMonthYield = 0
       }
+
+      // FYV: Monthly yield summary (per FCM architecture - borrowed MOET earns yield in FYV)
+      const fyvYieldRate = getFYVYieldRateForDay(monthDay, startYear)
+      const monthlyFYVYield = (approxFYVBalance * fyvYieldRate) / 12
+      approxFYVBalance += monthlyFYVYield
+      prevFYVYield += monthlyFYVYield
+
+      // Add FYV yield event
+      events.push(generateFYVYieldEvent(monthDay, monthlyFYVYield, approxFYVBalance, fyvYieldRate))
     }
   }
 

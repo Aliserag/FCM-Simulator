@@ -56,6 +56,50 @@ export function getVolatilityThresholds(volatility: number): VolatilityThreshold
   return VOLATILITY_THRESHOLDS[VOLATILITY_THRESHOLDS.length - 1]
 }
 
+/**
+ * Token-specific FCM threshold configurations
+ *
+ * Different tokens require different settings based on their volatility characteristics:
+ * - BTC: More conservative, no leverage-up (BTC has sharp crashes that require earlier rebalancing)
+ * - ETH: Moderate settings with leverage-up enabled (ETH performance benefits from leverage)
+ *
+ * These are BASE thresholds that can be overridden by:
+ * 1. Dynamic volatility-based adjustments
+ * 2. User-provided overrides in marketConditions
+ */
+export interface TokenFCMThresholds {
+  minHealth: number      // Rebalance DOWN trigger
+  targetHealth: number   // Target health after rebalancing
+  maxHealth: number      // Rebalance UP trigger (Infinity = disabled)
+}
+
+export const TOKEN_FCM_THRESHOLDS: Record<string, TokenFCMThresholds> = {
+  btc: {
+    minHealth: 1.10,
+    targetHealth: 1.25,
+    maxHealth: Infinity,  // Disable leverage-up for BTC (interest cost > gains in bull markets)
+  },
+  eth: {
+    minHealth: 1.05,      // Keep current settings (user confirmed these work well)
+    targetHealth: 1.15,
+    maxHealth: 1.30,
+  },
+}
+
+// Default conservative thresholds for tokens without specific config
+const DEFAULT_TOKEN_THRESHOLDS: TokenFCMThresholds = {
+  minHealth: 1.10,
+  targetHealth: 1.25,
+  maxHealth: Infinity,
+}
+
+/**
+ * Get FCM thresholds for a specific token
+ */
+export function getTokenFCMThresholds(tokenId: string): TokenFCMThresholds {
+  return TOKEN_FCM_THRESHOLDS[tokenId] ?? DEFAULT_TOKEN_THRESHOLDS
+}
+
 // Simulation defaults
 export const SIMULATION_DEFAULTS = {
   maxDay: 365,
@@ -73,6 +117,46 @@ export const SIMULATION_DEFAULTS = {
  * directly from healthy to liquidated without any rebalancing opportunity.
  */
 export const INTRADAY_CHECKPOINTS = 4
+
+/**
+ * FYV (Flow Yield Vault) Historic Yield Rates
+ *
+ * Per FCM architecture: Borrowed MOET is deployed to FYV via DrawDownSink.
+ * FYV generates yield through various DeFi strategies (LP positions, farming, lending).
+ *
+ * These rates reflect historic stablecoin DeFi yields:
+ * - 2020: DeFi Summer - high yields as protocols competed for liquidity
+ * - 2021: Peak yield farming - extreme yields during bull market
+ * - 2022: Bear market - reduced yields, capital flight
+ * - 2023: Recovery - moderate yields returning
+ * - 2024-2025: Bull market - healthy yields
+ *
+ * Reference: /docs/FCM-REFERENCE.md
+ */
+export const FYV_HISTORIC_YIELDS: Record<number, number> = {
+  2020: 0.15,  // 15% APY - DeFi summer
+  2021: 0.20,  // 20% APY - Peak yield farming
+  2022: 0.08,  // 8% APY - Bear market
+  2023: 0.10,  // 10% APY - Recovery
+  2024: 0.12,  // 12% APY - Bull market
+  2025: 0.12,  // 12% APY - Continued bull
+}
+
+/**
+ * Get FYV yield rate for a specific year
+ */
+export function getFYVYieldRate(year: number): number {
+  return FYV_HISTORIC_YIELDS[year] ?? 0.10  // Default 10% if year not found
+}
+
+/**
+ * Get FYV yield rate for a specific day in the simulation
+ * Uses the year based on simulation start year + days elapsed
+ */
+export function getFYVYieldRateForDay(day: number, startYear: number): number {
+  const year = startYear + Math.floor(day / 365)
+  return getFYVYieldRate(year)
+}
 
 // Deposit amount presets (USD value)
 export const DEPOSIT_PRESETS = [1000, 5000, 10000, 25000, 50000, 100000]

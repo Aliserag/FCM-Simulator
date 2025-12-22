@@ -45,6 +45,16 @@ export const BLACK_SWAN_EVENTS: BlackSwanEvent[] = [
     severity: 'major',
     priceDropPercent: 25,
   },
+  {
+    id: 'tariff-2025',
+    name: 'Trump Tariff Crash',
+    shortName: '10/10',
+    year: 2025,
+    dayOfYear: 283,  // October 10, 2025
+    description: 'Trump 100% China tariffs triggered $19B liquidation cascade',
+    severity: 'severe',
+    priceDropPercent: 14,
+  },
 ]
 
 /**

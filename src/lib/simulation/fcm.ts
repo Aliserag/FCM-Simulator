@@ -1,5 +1,5 @@
 import { PositionState, MarketConditions } from '@/types'
-import { PROTOCOL_CONFIG, getVolatilityThresholds, INTRADAY_CHECKPOINTS } from '@/lib/constants'
+import { PROTOCOL_CONFIG, getVolatilityThresholds, getTokenFCMThresholds, INTRADAY_CHECKPOINTS, getFYVYieldRateForDay } from '@/lib/constants'
 import {
   calculateHealthFactor,
   calculateCollateralValueUSD,
@@ -45,6 +45,12 @@ interface FCMState {
   totalInterestPaid: number
   totalYieldEarned: number
   accumulatedYield: number  // Yield not yet used for debt repayment
+  // FYV (Flow Yield Vault) state - per FCM architecture
+  // Borrowed MOET is deployed to FYV via DrawDownSink, earns yield
+  fyvBalance: number           // Current MOET balance in FYV
+  fyvTotalYieldEarned: number  // Cumulative yield earned from FYV strategies
+  fyvTotalDeployed: number     // Cumulative MOET deployed to FYV
+  fyvTotalWithdrawn: number    // Cumulative MOET withdrawn from FYV (for rebalancing)
 }
 
 // Store FCM state per day for tracking rebalances
@@ -79,6 +85,9 @@ export function initializeFCMPosition(
     accruedInterest: 0,
     earnedYield: 0,
     rebalanceCount: 0,
+    // FYV: Initial borrow is deployed to FYV via DrawDownSink (per FCM architecture)
+    fyvBalance: initialBorrow,
+    fyvYieldEarned: 0,
   }
 }
 
@@ -144,8 +153,15 @@ export function simulateFCMPosition(
     marketConditions,
   } = params
 
-  // Get base thresholds from overrides or defaults
-  const baseTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+  // Get token-specific base thresholds
+  const tokenThresholds = marketConditions?.collateralToken
+    ? getTokenFCMThresholds(marketConditions.collateralToken)
+    : { minHealth: PROTOCOL_CONFIG.minHealth, targetHealth: PROTOCOL_CONFIG.targetHealth, maxHealth: PROTOCOL_CONFIG.maxHealth }
+
+  // User overrides take precedence over token defaults
+  const baseTargetHealth = marketConditions?.fcmTargetHealth ?? tokenThresholds.targetHealth
+  const baseMinHealth = marketConditions?.fcmMinHealth ?? tokenThresholds.minHealth
+  const baseMaxHealth = marketConditions?.fcmMaxHealth ?? tokenThresholds.maxHealth
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
 
   // Get initial borrow amount at target health
@@ -158,6 +174,7 @@ export function simulateFCMPosition(
   )
 
   // Initialize FCM state
+  // Per FCM architecture: Initial borrow is deployed to FYV via DrawDownSink
   let state: FCMState = {
     collateralAmount: initialCollateral,
     debtAmount: initialBorrow,
@@ -166,7 +183,15 @@ export function simulateFCMPosition(
     totalInterestPaid: 0,
     totalYieldEarned: 0,
     accumulatedYield: 0,
+    // FYV: Initial borrow goes to FYV (DrawDownSink → FYV.swap(MOET → YieldToken))
+    fyvBalance: initialBorrow,
+    fyvTotalYieldEarned: 0,
+    fyvTotalDeployed: initialBorrow,
+    fyvTotalWithdrawn: 0,
   }
+
+  // Get start year for FYV yield rate lookup
+  const startYear = marketConditions?.startYear ?? 2020
 
   // Get supply APY from override or token-specific value
   const tokenSupplyAPY = marketConditions?.supplyAPY
@@ -204,13 +229,27 @@ export function simulateFCMPosition(
     }
 
     // Calculate rolling volatility and get dynamic thresholds
-    const volatility = priceArray.length > 0 ? calculateVolatility(priceArray, d, 30) : 0
+    // For historic mode: calculate from real price data
+    // For simulated mode: map user's volatility selection to percentage
+    let volatility: number
+    if (priceArray.length > 0) {
+      volatility = calculateVolatility(priceArray, d, 30)
+    } else {
+      // Simulated mode: map user's volatility selection to representative percentage
+      // This ensures dynamic thresholds work correctly in simulated scenarios
+      const volMap: Record<string, number> = { low: 30, medium: 60, high: 100 }
+      volatility = volMap[marketConditions?.volatility ?? 'medium']
+    }
     const dynamicThresholds = getVolatilityThresholds(volatility)
 
-    // Use dynamic thresholds for rebalancing decisions
-    const fcmMinHealth = dynamicThresholds.minHealth
-    const fcmTargetHealth = dynamicThresholds.targetHealth
-    const fcmMaxHealth = dynamicThresholds.maxHealth
+    // Threshold priority: User overrides > Dynamic volatility-adjusted
+    // This ensures high volatility scenarios use conservative thresholds
+    const fcmMinHealth = marketConditions?.fcmMinHealth ?? dynamicThresholds.minHealth
+    const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? dynamicThresholds.targetHealth
+    // For maxHealth: high volatility forces Infinity for safety (disable leverage-up)
+    const fcmMaxHealth = dynamicThresholds.maxHealth === Infinity
+      ? Infinity
+      : (marketConditions?.fcmMaxHealth ?? dynamicThresholds.maxHealth)
 
     // Calculate price ratio for intraday interpolation
     // This models continuous price movement within the day
@@ -244,8 +283,9 @@ export function simulateFCMPosition(
         )
 
         if (repayAmount > 0 && repayAmount <= state.debtAmount) {
-          // First, use any remaining accumulated yield
           let remainingRepay = repayAmount
+
+          // Priority 1: Use accumulated collateral yield
           if (state.accumulatedYield > 0) {
             const yieldUsed = Math.min(state.accumulatedYield, remainingRepay)
             state.debtAmount -= yieldUsed
@@ -253,7 +293,17 @@ export function simulateFCMPosition(
             remainingRepay -= yieldUsed
           }
 
-          // Then sell collateral if still needed
+          // Priority 2: Withdraw from FYV via TopUpSource (per FCM architecture)
+          // FYV swaps YieldToken → MOET to provide liquidity
+          if (remainingRepay > 0 && state.fyvBalance > 0) {
+            const fyvWithdraw = Math.min(state.fyvBalance, remainingRepay)
+            state.fyvBalance -= fyvWithdraw
+            state.debtAmount -= fyvWithdraw
+            state.fyvTotalWithdrawn += fyvWithdraw
+            remainingRepay -= fyvWithdraw
+          }
+
+          // Priority 3: Sell collateral only if FYV insufficient
           if (remainingRepay > 0 && remainingRepay <= state.debtAmount) {
             const collateralToSell = remainingRepay / intradayPrice
 
@@ -261,9 +311,10 @@ export function simulateFCMPosition(
             if (collateralToSell <= state.collateralAmount) {
               state.collateralAmount -= collateralToSell
               state.debtAmount -= remainingRepay
-              state.rebalanceCount++
             }
           }
+
+          state.rebalanceCount++
         }
       }
     }
@@ -279,7 +330,15 @@ export function simulateFCMPosition(
     state.accumulatedYield += dailyYield
     state.totalYieldEarned += dailyYield
 
-    // 2. Accrue daily interest on debt (this is a lending fee)
+    // 2. FYV (Flow Yield Vault) earns yield on deployed MOET
+    // Per FCM architecture: FYV strategies generate yield from LP positions, farming, lending
+    // Uses historic DeFi stablecoin yields (15-20% in bull markets, 8% in bear)
+    const fyvYieldRate = getFYVYieldRateForDay(d, startYear)
+    const dailyFYVYield = (state.fyvBalance * fyvYieldRate) / 365
+    state.fyvBalance += dailyFYVYield  // Yield compounds into FYV balance
+    state.fyvTotalYieldEarned += dailyFYVYield
+
+    // 3. Accrue daily interest on debt (this is a lending fee)
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
     state.debtAmount += dailyInterest
     state.totalInterestPaid += dailyInterest
@@ -313,6 +372,8 @@ export function simulateFCMPosition(
 
       if (repayAmount > 0 && repayAmount <= state.debtAmount) {
         let remainingRepay = repayAmount
+
+        // Priority 1: Use accumulated collateral yield
         if (state.accumulatedYield > 0) {
           const yieldUsed = Math.min(state.accumulatedYield, remainingRepay)
           state.debtAmount -= yieldUsed
@@ -320,22 +381,32 @@ export function simulateFCMPosition(
           remainingRepay -= yieldUsed
         }
 
+        // Priority 2: Withdraw from FYV via TopUpSource
+        if (remainingRepay > 0 && state.fyvBalance > 0) {
+          const fyvWithdraw = Math.min(state.fyvBalance, remainingRepay)
+          state.fyvBalance -= fyvWithdraw
+          state.debtAmount -= fyvWithdraw
+          state.fyvTotalWithdrawn += fyvWithdraw
+          remainingRepay -= fyvWithdraw
+        }
+
+        // Priority 3: Sell collateral only if FYV insufficient
         if (remainingRepay > 0 && remainingRepay <= state.debtAmount) {
           const collateralToSell = remainingRepay / dayPrice
           if (collateralToSell <= state.collateralAmount) {
             state.collateralAmount -= collateralToSell
             state.debtAmount -= remainingRepay
-            state.rebalanceCount++
           }
         }
+
+        state.rebalanceCount++
       }
     }
 
     // 6. Check if UPWARD rebalancing is needed (overcollateralized - maximize capital efficiency)
-    // When health > maxHealth, FCM borrows more to restore health to target
-    // This maximizes returns in bull markets by increasing leverage (recursive)
+    // Per FCM architecture: When health > maxHealth, FCM borrows more and deploys to FYV
     // IMPORTANT: fcmMaxHealth = Infinity during high volatility disables this
-    // NEW: Require sustained growth AND low volatility before leverage-up
+    // Require sustained growth AND low volatility before leverage-up
     if (currentHealth > fcmMaxHealth && fcmMaxHealth < Infinity) {
       // Additional safety checks for leverage-up:
       // 1. Require sustained uptrend (7+ consecutive up days)
@@ -353,13 +424,12 @@ export function simulateFCMPosition(
           // Leverage-up: go 75% of the way to target for meaningful gains
           const additionalBorrow = fullAdditionalBorrow * 0.75
 
-          // Borrow more and use funds to buy more collateral (recursive leverage)
-          // This is how real DeFi leverage works - borrowed stablecoins buy more BTC/ETH
-          // In FCM, DrawDownSink routes funds to strategies - we simulate direct reinvestment
+          // Per FCM architecture: Borrow more MOET and deploy to FYV via DrawDownSink
+          // This is the KEY CHANGE from recursive collateral purchasing
+          // Collateral stays UNCHANGED - borrowed MOET goes to yield strategies
           state.debtAmount += additionalBorrow
-          // Buy more collateral with borrowed funds
-          const additionalCollateral = additionalBorrow / dayPrice
-          state.collateralAmount += additionalCollateral
+          state.fyvBalance += additionalBorrow  // Deploy to FYV
+          state.fyvTotalDeployed += additionalBorrow
           state.leverageUpCount++
 
           // Reset consecutive up days after leverage-up to prevent back-to-back leverage
@@ -383,16 +453,17 @@ export function simulateFCMPosition(
   const liquidated = isLiquidatable(healthFactor)
 
   // Calculate net returns (equity-based)
+  // Per FCM architecture: Total Value = ALP Equity + FYV Balance
   // Initial equity = $1000 collateral - ~$615 debt = ~$385
-  // Final equity = current collateral value - current debt
+  // Final Total Value = (collateral value - debt) + FYV balance
   const initialCollateralValue = initialCollateral * basePrice
-  const totalReturns = calculateNetReturns(
-    collateralValueUSD,
-    initialCollateralValue,
-    state.debtAmount,
-    initialBorrow,
-    liquidated
-  )
+  const alpEquity = collateralValueUSD - state.debtAmount
+  const totalValue = alpEquity + state.fyvBalance
+
+  // Returns based on Total Value change (includes FYV gains)
+  // Compare against initialCollateralValue (user's deposit), not initialEquity
+  // This ensures totalReturns = 0 at day 0 when totalValue = initialDeposit
+  const totalReturns = liquidated ? -initialCollateralValue : (totalValue - initialCollateralValue)
 
   // Determine status based on health factor vs base target
   let status: 'healthy' | 'warning' | 'liquidated' = 'healthy'
@@ -412,19 +483,27 @@ export function simulateFCMPosition(
     status,
     totalReturns,
     accruedInterest: state.totalInterestPaid,
-    earnedYield: state.totalYieldEarned,
+    earnedYield: state.totalYieldEarned + state.fyvTotalYieldEarned,
     rebalanceCount: state.rebalanceCount,
     leverageUpCount: state.leverageUpCount,
+    // FYV (Flow Yield Vault) data
+    fyvBalance: state.fyvBalance,
+    fyvYieldEarned: state.fyvTotalYieldEarned,
   }
 }
 
 // Event type for FCM rebalancing (both downward and upward)
+// Includes FYV-related data per FCM architecture
 export interface FCMRebalanceEvent {
   day: number
   healthBefore: number
   healthAfter: number
   type: 'rebalance_down' | 'leverage_up'
   amount: number  // repaidAmount for down, borrowedAmount for up
+  // FYV-related data
+  fyvWithdrawn?: number   // MOET withdrawn from FYV via TopUpSource (for rebalance_down)
+  fyvDeployed?: number    // MOET deployed to FYV via DrawDownSink (for leverage_up)
+  collateralSold?: number // Collateral sold (only if FYV insufficient)
 }
 
 /**
@@ -441,8 +520,16 @@ export function getFCMRebalanceEvents(
 ): FCMRebalanceEvent[] {
   const events: FCMRebalanceEvent[] = []
 
+  // Get token-specific base thresholds
+  const tokenThresholds = marketConditions?.collateralToken
+    ? getTokenFCMThresholds(marketConditions.collateralToken)
+    : { minHealth: PROTOCOL_CONFIG.minHealth, targetHealth: PROTOCOL_CONFIG.targetHealth, maxHealth: PROTOCOL_CONFIG.maxHealth }
+
+  // User overrides take precedence over token defaults
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
-  const baseTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+  const baseTargetHealth = marketConditions?.fcmTargetHealth ?? tokenThresholds.targetHealth
+  const baseMinHealth = marketConditions?.fcmMinHealth ?? tokenThresholds.minHealth
+  const baseMaxHealth = marketConditions?.fcmMaxHealth ?? tokenThresholds.maxHealth
 
   const initialBorrow = calculateInitialBorrow(
     initialCollateral,
@@ -457,11 +544,13 @@ export function getFCMRebalanceEvents(
       ? getTokenSupplyAPY(marketConditions.collateralToken)
       : PROTOCOL_CONFIG.supplyAPY)
 
+  // Get start year for FYV yield rate lookup and price array
+  const startYear = marketConditions?.startYear ?? 2020
+  const endYear = marketConditions?.endYear ?? 2020
+
   // Get price array for volatility calculation (historic mode only)
   let priceArray: number[] = []
   if (marketConditions?.dataMode === 'historic' && marketConditions.collateralToken) {
-    const startYear = marketConditions.startYear ?? 2020
-    const endYear = marketConditions.endYear ?? 2020
     if (marketConditions.collateralToken === 'btc' || marketConditions.collateralToken === 'eth') {
       priceArray = getMultiYearPrices(marketConditions.collateralToken, startYear, endYear)
     }
@@ -471,6 +560,8 @@ export function getFCMRebalanceEvents(
     collateralAmount: initialCollateral,
     debtAmount: initialBorrow,
     accumulatedYield: 0,
+    // FYV state - initial borrow deployed to FYV via DrawDownSink
+    fyvBalance: initialBorrow,
   }
 
   // Track sustained growth for leverage-up
@@ -491,12 +582,25 @@ export function getFCMRebalanceEvents(
     }
 
     // Calculate rolling volatility and get dynamic thresholds
-    const volatility = priceArray.length > 0 ? calculateVolatility(priceArray, d, 30) : 0
+    // For historic mode: calculate from real price data
+    // For simulated mode: map user's volatility selection to percentage
+    let volatility: number
+    if (priceArray.length > 0) {
+      volatility = calculateVolatility(priceArray, d, 30)
+    } else {
+      // Simulated mode: map user's volatility selection to representative percentage
+      const volMap: Record<string, number> = { low: 30, medium: 60, high: 100 }
+      volatility = volMap[marketConditions?.volatility ?? 'medium']
+    }
     const dynamicThresholds = getVolatilityThresholds(volatility)
 
-    const fcmMinHealth = dynamicThresholds.minHealth
-    const fcmTargetHealth = dynamicThresholds.targetHealth
-    const fcmMaxHealth = dynamicThresholds.maxHealth
+    // Threshold priority: User overrides > Dynamic volatility-adjusted
+    const fcmMinHealth = marketConditions?.fcmMinHealth ?? dynamicThresholds.minHealth
+    const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? dynamicThresholds.targetHealth
+    // For maxHealth: high volatility forces Infinity for safety (disable leverage-up)
+    const fcmMaxHealth = dynamicThresholds.maxHealth === Infinity
+      ? Infinity
+      : (marketConditions?.fcmMaxHealth ?? dynamicThresholds.maxHealth)
 
     // Calculate price ratio for intraday interpolation
     const priceRatio = dayEndPrice / prevDayPrice
@@ -526,26 +630,44 @@ export function getFCMRebalanceEvents(
         )
 
         if (repayAmount > 0 && repayAmount <= state.debtAmount) {
-          const collateralToSell = repayAmount / intradayPrice
-          if (collateralToSell <= state.collateralAmount) {
-            state.collateralAmount -= collateralToSell
-            state.debtAmount -= repayAmount
+          let remainingRepay = repayAmount
+          let fyvWithdrawn = 0
+          let collateralSold = 0
 
-            const healthAfter = calculateHealthFactor(
-              state.collateralAmount,
-              intradayPrice,
-              state.debtAmount,
-              collateralFactor
-            )
-
-            events.push({
-              day: d,
-              healthBefore: checkpointHealth,
-              healthAfter,
-              type: 'rebalance_down',
-              amount: repayAmount,
-            })
+          // Priority 1: Withdraw from FYV via TopUpSource
+          if (state.fyvBalance > 0) {
+            fyvWithdrawn = Math.min(state.fyvBalance, remainingRepay)
+            state.fyvBalance -= fyvWithdrawn
+            state.debtAmount -= fyvWithdrawn
+            remainingRepay -= fyvWithdrawn
           }
+
+          // Priority 2: Sell collateral if FYV insufficient
+          if (remainingRepay > 0) {
+            const collateralToSell = remainingRepay / intradayPrice
+            if (collateralToSell <= state.collateralAmount) {
+              state.collateralAmount -= collateralToSell
+              state.debtAmount -= remainingRepay
+              collateralSold = collateralToSell
+            }
+          }
+
+          const healthAfter = calculateHealthFactor(
+            state.collateralAmount,
+            intradayPrice,
+            state.debtAmount,
+            collateralFactor
+          )
+
+          events.push({
+            day: d,
+            healthBefore: checkpointHealth,
+            healthAfter,
+            type: 'rebalance_down',
+            amount: repayAmount,
+            fyvWithdrawn: fyvWithdrawn > 0 ? fyvWithdrawn : undefined,
+            collateralSold: collateralSold > 0 ? collateralSold : undefined,
+          })
         }
       }
     }
@@ -559,11 +681,16 @@ export function getFCMRebalanceEvents(
     const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
     state.accumulatedYield += dailyYield
 
-    // 2. Add interest on debt
+    // 2. FYV earns yield on deployed MOET
+    const fyvYieldRate = getFYVYieldRateForDay(d, startYear)
+    const dailyFYVYield = (state.fyvBalance * fyvYieldRate) / 365
+    state.fyvBalance += dailyFYVYield
+
+    // 3. Add interest on debt
     const dailyInterest = (state.debtAmount * borrowAPY) / 365
     state.debtAmount += dailyInterest
 
-    // 3. Calculate health at end of day
+    // 4. Calculate health at end of day
     const healthBefore = calculateHealthFactor(
       state.collateralAmount,
       dayPrice,
@@ -571,8 +698,7 @@ export function getFCMRebalanceEvents(
       collateralFactor
     )
 
-    // 4. Apply yield to debt ONLY when health is LOW (protection mode)
-    // When health >= targetHealth, retain yield for growth/leverage optimization
+    // 5. Apply yield to debt ONLY when health is LOW (protection mode)
     if (healthBefore < fcmTargetHealth && state.accumulatedYield > 0 && state.debtAmount > 0) {
       const yieldToApply = Math.min(state.accumulatedYield, state.debtAmount)
       state.debtAmount -= yieldToApply
@@ -590,34 +716,51 @@ export function getFCMRebalanceEvents(
       )
 
       if (repayAmount > 0 && repayAmount <= state.debtAmount) {
-        const collateralToSell = repayAmount / dayPrice
-        if (collateralToSell <= state.collateralAmount) {
-          state.collateralAmount -= collateralToSell
-          state.debtAmount -= repayAmount
+        let remainingRepay = repayAmount
+        let fyvWithdrawn = 0
+        let collateralSold = 0
 
-          const healthAfter = calculateHealthFactor(
-            state.collateralAmount,
-            dayPrice,
-            state.debtAmount,
-            collateralFactor
-          )
-
-          events.push({
-            day: d,
-            healthBefore,
-            healthAfter,
-            type: 'rebalance_down',
-            amount: repayAmount,
-          })
+        // Priority 1: Withdraw from FYV via TopUpSource
+        if (state.fyvBalance > 0) {
+          fyvWithdrawn = Math.min(state.fyvBalance, remainingRepay)
+          state.fyvBalance -= fyvWithdrawn
+          state.debtAmount -= fyvWithdrawn
+          remainingRepay -= fyvWithdrawn
         }
+
+        // Priority 2: Sell collateral if FYV insufficient
+        if (remainingRepay > 0) {
+          const collateralToSell = remainingRepay / dayPrice
+          if (collateralToSell <= state.collateralAmount) {
+            state.collateralAmount -= collateralToSell
+            state.debtAmount -= remainingRepay
+            collateralSold = collateralToSell
+          }
+        }
+
+        const healthAfter = calculateHealthFactor(
+          state.collateralAmount,
+          dayPrice,
+          state.debtAmount,
+          collateralFactor
+        )
+
+        events.push({
+          day: d,
+          healthBefore,
+          healthAfter,
+          type: 'rebalance_down',
+          amount: repayAmount,
+          fyvWithdrawn: fyvWithdrawn > 0 ? fyvWithdrawn : undefined,
+          collateralSold: collateralSold > 0 ? collateralSold : undefined,
+        })
       }
     }
 
     // Check for UPWARD rebalancing (overcollateralized)
+    // Per FCM architecture: Borrow more and deploy to FYV via DrawDownSink
     // IMPORTANT: fcmMaxHealth = Infinity during high volatility disables this
-    // NEW: Require sustained growth AND low volatility before leverage-up
     if (healthBefore > fcmMaxHealth && fcmMaxHealth < Infinity) {
-      // Additional safety checks for leverage-up
       const canLeverageUp = consecutiveUpDays >= SUSTAINED_GROWTH_DAYS && volatility < MAX_VOLATILITY_FOR_LEVERAGE
 
       if (canLeverageUp) {
@@ -626,13 +769,11 @@ export function getFCMRebalanceEvents(
         const fullAdditionalBorrow = targetDebt - state.debtAmount
 
         if (fullAdditionalBorrow > 0) {
-          // Leverage-up: go 75% of the way to target for meaningful gains
           const additionalBorrow = fullAdditionalBorrow * 0.75
 
-          // Borrow more and buy more collateral (recursive leverage)
+          // Per FCM architecture: Deploy to FYV (not buy collateral)
           state.debtAmount += additionalBorrow
-          const additionalCollateral = additionalBorrow / dayPrice
-          state.collateralAmount += additionalCollateral
+          state.fyvBalance += additionalBorrow  // Deploy to FYV via DrawDownSink
 
           const healthAfter = calculateHealthFactor(
             state.collateralAmount,
@@ -647,9 +788,9 @@ export function getFCMRebalanceEvents(
             healthAfter,
             type: 'leverage_up',
             amount: additionalBorrow,
+            fyvDeployed: additionalBorrow,
           })
 
-          // Reset consecutive up days after leverage-up
           consecutiveUpDays = 0
         }
       }

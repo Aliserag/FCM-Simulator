@@ -12,6 +12,10 @@ export interface PositionState {
   earnedYield: number           // interest earned on collateral (FCM)
   rebalanceCount: number        // number of rebalances down (FCM only)
   leverageUpCount?: number      // number of leverage ups when overcollateralized (FCM only)
+  // FYV (Flow Yield Vault) - FCM only
+  // Per FCM architecture: Borrowed MOET is deployed to FYV via DrawDownSink
+  fyvBalance?: number           // Current MOET balance in FYV (earning yield)
+  fyvYieldEarned?: number       // Cumulative yield earned from FYV strategies
 }
 
 // Chart data point for visualization
@@ -20,19 +24,29 @@ export interface ChartDataPoint {
   year: number
   date: string
   traditionalValue: number
-  fcmValue: number
+  fcmValue: number              // Total Value = ALP Equity + FYV Balance (per FCM architecture)
   price: number
   liquidationPrice: number
   traditionalLiquidated: boolean
   fcmLiquidated: boolean
+  // FYV breakdown for tooltip (FCM only)
+  fyvBalance?: number           // FYV balance for tooltip display
+  alpEquity?: number            // ALP Equity (Collateral - Debt) for tooltip display
 }
 
 // Event logged during simulation
+// FYV events use FCM terminology: DrawDownSink (deploy), TopUpSource (withdraw)
 export interface SimulationEvent {
   id: string
   day: number
   position: 'traditional' | 'fcm' | 'both'
-  type: 'create' | 'borrow' | 'rebalance' | 'leverage_up' | 'liquidation' | 'interest' | 'yield_earned' | 'yield_applied' | 'scheduled' | 'warning'
+  type:
+    | 'create' | 'borrow' | 'rebalance' | 'leverage_up' | 'liquidation'
+    | 'interest' | 'yield_earned' | 'yield_applied' | 'scheduled' | 'warning'
+    // FYV (Flow Yield Vault) events - per FCM architecture
+    | 'fyv_deploy'              // MOET deployed to FYV via DrawDownSink
+    | 'fyv_yield'               // FYV yield earned (monthly summary)
+    | 'fyv_withdraw'            // FYV provides liquidity via TopUpSource
   action: string                // Human-readable action
   code: string                  // Code/function called
   details?: string              // Additional info
@@ -58,6 +72,7 @@ export interface MarketConditions {
   basePrice?: number            // Override base token price
   fcmMinHealth?: number         // FCM rebalance trigger threshold
   fcmTargetHealth?: number      // FCM rebalance restore target
+  fcmMaxHealth?: number         // FCM leverage-up trigger threshold (Infinity = disabled)
   collateralFactor?: number     // Override LTV (0.5-0.9)
   // Historic mode options
   startYear?: number            // 2020-2025

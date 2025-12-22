@@ -24,6 +24,9 @@ export interface ChartDataPoint {
   liquidationPrice: number
   traditionalLiquidated: boolean
   fcmLiquidated: boolean
+  // FYV breakdown for tooltip (FCM only)
+  fyvBalance?: number
+  alpEquity?: number
 }
 
 interface SimulationChartProps {
@@ -61,19 +64,39 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   const data = payload[0]?.payload
   if (!data) return null
 
+  // Check if FYV data is available
+  const hasFYVData = data.fyvBalance !== undefined && data.alpEquity !== undefined
+
   return (
     <div className="bg-bg-card border border-[rgba(255,255,255,0.1)] rounded-lg p-3 shadow-[0px_4px_16px_0px_rgba(0,0,0,0.3)]">
       <p className="text-text-muted text-xs mb-2">{data.date}</p>
       <div className="space-y-1.5">
+        {/* FCM Total Value */}
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-mint"></span>
-            <span className="text-text-secondary text-sm">FCM</span>
+            <span className="text-text-secondary text-sm">FCM Total</span>
           </span>
           <span className={`text-sm font-medium ${data.fcmLiquidated ? 'text-danger line-through' : 'text-mint'}`}>
             {data.fcmLiquidated ? 'Liquidated' : formatUSD(data.fcmValue)}
           </span>
         </div>
+
+        {/* FYV Breakdown (only when not liquidated and data available) */}
+        {hasFYVData && !data.fcmLiquidated && (
+          <div className="pl-3.5 space-y-0.5 border-l-2 border-mint/30">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-text-muted text-xs">ALP Equity</span>
+              <span className="text-text-secondary text-xs">{formatUSD(data.alpEquity!)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-text-muted text-xs">FYV Balance</span>
+              <span className="text-cyan-400 text-xs">{formatUSD(data.fyvBalance!)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Traditional Value */}
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-danger"></span>
@@ -83,6 +106,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
             {data.traditionalLiquidated ? 'Liquidated' : formatUSD(data.traditionalValue)}
           </span>
         </div>
+
+        {/* Token Price */}
         <div className="border-t border-[rgba(255,255,255,0.05)] pt-1.5 mt-1.5">
           <div className="flex items-center justify-between gap-4">
             <span className="text-text-muted text-xs">Token Price</span>

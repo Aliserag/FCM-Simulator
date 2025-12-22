@@ -166,16 +166,30 @@ export function generateChartData(
     if (traditional.status === 'liquidated') traditionalLiquidated = true
     if (fcm.status === 'liquidated') fcmLiquidated = true
 
+    // Calculate Portfolio Value = Initial Deposit + Total Returns
+    // Both positions start at same value ($1000), then diverge as:
+    // - Traditional: Crashes to $0 on liquidation
+    // - FCM: Survives via rebalancing + earns FYV yield
+    const traditionalPortfolioValue = initialDeposit + traditional.totalReturns
+    const fcmPortfolioValue = initialDeposit + fcm.totalReturns
+
+    // Keep FYV breakdown for tooltip
+    const alpEquity = fcm.collateralValueUSD - fcm.debtAmount
+    const fyvBalance = fcm.fyvBalance ?? 0
+
     chartData.push({
       day,
       year,
       date,
-      traditionalValue: traditionalLiquidated ? 0 : traditional.collateralValueUSD,
-      fcmValue: fcmLiquidated ? 0 : fcm.collateralValueUSD,
+      traditionalValue: traditionalLiquidated ? 0 : traditionalPortfolioValue,
+      fcmValue: fcmLiquidated ? 0 : fcmPortfolioValue,
       price,
       liquidationPrice: liquidationValue,
       traditionalLiquidated,
       fcmLiquidated,
+      // FYV breakdown for tooltip
+      fyvBalance: fcmLiquidated ? 0 : fyvBalance,
+      alpEquity: fcmLiquidated ? 0 : alpEquity,
     })
   }
 

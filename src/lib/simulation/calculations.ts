@@ -266,8 +266,8 @@ export function calculateNetReturns(
   const initialEquity = initialCollateralValueUSD - initialDebt
 
   if (isLiquidated) {
-    // Liquidated = lost all equity
-    return -initialEquity
+    // Liquidated = lost full deposit (consistent with Portfolio Value display)
+    return -initialCollateralValueUSD
   }
 
   // Current equity

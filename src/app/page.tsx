@@ -26,6 +26,9 @@ import {
   Timer,
   Settings2,
   ExternalLink,
+  Upload,
+  ArrowRight,
+  Coins,
 } from "lucide-react";
 import { useSimulation } from "@/hooks/useSimulation";
 import {
@@ -35,7 +38,7 @@ import {
   formatPercent,
   formatTokenAmount,
 } from "@/lib/utils";
-import { TOOLTIPS, PROTOCOL_CONFIG } from "@/lib/constants";
+import { TOOLTIPS, PROTOCOL_CONFIG, getTokenFCMThresholds } from "@/lib/constants";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SimulationEvent } from "@/types";
 import { getTokenSupplyAPY, getToken } from "@/data/historicPrices";
@@ -69,6 +72,7 @@ export default function SimulatorPage() {
     setBasePrice,
     setFcmMinHealth,
     setFcmTargetHealth,
+    setFcmMaxHealth,
     setInitialDeposit,
     setCollateralFactor,
     setStartYear,
@@ -168,6 +172,11 @@ export default function SimulatorPage() {
       ((state.flowPrice - state.baseFlowPrice) / state.baseFlowPrice) * 100
     );
   }, [state.flowPrice, state.baseFlowPrice]);
+
+  // Get token-specific FCM thresholds (BTC: 1.10/1.25, ETH: 1.05/1.15)
+  const tokenThresholds = useMemo(() => {
+    return getTokenFCMThresholds(state.marketConditions.collateralToken ?? 'eth');
+  }, [state.marketConditions.collateralToken]);
 
   // Handler for data mode change
   const handleDataModeChange = useCallback(
@@ -277,10 +286,10 @@ export default function SimulatorPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                         <div>
                           <h3 className="text-base sm:text-lg font-semibold text-text-primary">
-                            Position Equity Over Time
+                            Portfolio Value Over Time
                           </h3>
                           <p className="text-xs text-text-muted hidden sm:block">
-                            Net position value (collateral − debt)
+                            Your investment journey: both start at ${state.initialDeposit.toLocaleString()}
                           </p>
                         </div>
                         <div className="text-sm text-text-secondary">
@@ -522,6 +531,7 @@ export default function SimulatorPage() {
                               setSupplyAPY(PROTOCOL_CONFIG.supplyAPY);
                               setFcmMinHealth(PROTOCOL_CONFIG.minHealth);
                               setFcmTargetHealth(PROTOCOL_CONFIG.targetHealth);
+                              setFcmMaxHealth(PROTOCOL_CONFIG.maxHealth);
                               setCollateralFactor(PROTOCOL_CONFIG.collateralFactor);
                               setBasePrice(livePrices[state.marketConditions.collateralToken]);
                             }}
@@ -650,6 +660,37 @@ export default function SimulatorPage() {
                             />
                           </div>
 
+                          {/* FCM Max Health (Leverage-Up Trigger) */}
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-text-muted">FCM Leverage-Up Trigger</span>
+                              <span className="font-mono text-text-primary">
+                                {(state.marketConditions.fcmMaxHealth ?? PROTOCOL_CONFIG.maxHealth) === Infinity
+                                  ? "Disabled"
+                                  : (state.marketConditions.fcmMaxHealth ?? PROTOCOL_CONFIG.maxHealth).toFixed(2)}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={(state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth) + 0.1}
+                              max={2.5}
+                              step={0.05}
+                              value={(state.marketConditions.fcmMaxHealth ?? PROTOCOL_CONFIG.maxHealth) === Infinity
+                                ? 2.5
+                                : (state.marketConditions.fcmMaxHealth ?? PROTOCOL_CONFIG.maxHealth)}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                // 2.5 means disabled (Infinity)
+                                setFcmMaxHealth(val >= 2.5 ? Infinity : val);
+                              }}
+                              className="w-full accent-mint"
+                            />
+                            <div className="flex justify-between text-xs text-text-muted mt-1">
+                              <span>{((state.marketConditions.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth) + 0.1).toFixed(1)}</span>
+                              <span>Disabled →</span>
+                            </div>
+                          </div>
+
                           {/* LTV */}
                           <div>
                             <div className="flex justify-between text-sm mb-2">
@@ -687,23 +728,13 @@ export default function SimulatorPage() {
                 icon={<Clock className="w-4 h-4 text-white/60" />}
               />
               <StatCard
-                label={
-                  state.marketConditions.dataMode === "simulated"
-                    ? "Token Price"
-                    : `${
-                        tokens.find(
-                          (t) => t.id === state.marketConditions.collateralToken
-                        )?.symbol || "Token"
-                      } Price`
-                }
+                label={`${
+                  tokens.find(
+                    (t) => t.id === state.marketConditions.collateralToken
+                  )?.symbol || "Token"
+                } Price`}
                 value={formatCurrencyCompact(state.flowPrice)}
-                subValue={
-                  state.marketConditions.dataMode === "simulated"
-                    ? `${formatPercent(
-                        priceChangePercent
-                      )} from ${formatCurrencyCompact(state.baseFlowPrice)}`
-                    : formatPercent(priceChangePercent)
-                }
+                subValue={formatPercent(priceChangePercent)}
                 subValueColor={
                   priceChangePercent >= 0 ? "text-emerald-400" : "text-red-400"
                 }
@@ -718,61 +749,47 @@ export default function SimulatorPage() {
               <StatCard
                 label="APY Rates"
                 value={formatPercent(
-                  (state.marketConditions.dataMode === "simulated" &&
-                  state.marketConditions.supplyAPY !== undefined
-                    ? state.marketConditions.supplyAPY
-                    : getTokenSupplyAPY(
-                        state.marketConditions.collateralToken
-                      )) * 100,
+                  getTokenSupplyAPY(state.marketConditions.collateralToken) * 100,
                   1
                 )}
                 subValue={`${formatPercent(
-                  -(state.marketConditions.dataMode === "simulated" &&
-                  state.marketConditions.borrowAPY !== undefined
-                    ? state.marketConditions.borrowAPY
-                    : PROTOCOL_CONFIG.borrowAPY) * 100,
+                  -PROTOCOL_CONFIG.borrowAPY * 100,
                   1
                 )} borrow`}
                 subValueColor="text-red-400"
                 icon={<Zap className="w-4 h-4 text-white/60" />}
                 tooltipContent={
-                  state.marketConditions.dataMode === "historic" ? (
-                    <div className="space-y-2">
-                      <div>
-                        <div className="font-semibold text-emerald-400">
-                          Supply APY (by year)
-                        </div>
-                        <ul className="text-white/60 ml-1 text-[10px] space-y-0.5">
-                          <li>2020: 2.5% • 2021: 4% (DeFi Summer)</li>
-                          <li>2022: 3% • 2023: 4%</li>
-                          <li>2024-25: 5% (bull market)</li>
-                        </ul>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="font-semibold text-emerald-400">
+                        Supply APY (by year)
                       </div>
-                      <div>
-                        <div className="font-semibold text-red-400">
-                          Borrow APY
-                        </div>
-                        <div className="text-white/60 text-[10px]">
-                          6.5% average (Aave/Compound typical rate)
-                        </div>
+                      <ul className="text-white/60 ml-1 text-[10px] space-y-0.5">
+                        <li>2020: 2.5% • 2021: 4% (DeFi Summer)</li>
+                        <li>2022: 3% • 2023: 4%</li>
+                        <li>2024-25: 5% (bull market)</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-red-400">
+                        Borrow APY
                       </div>
-                      <div className="text-white/40 text-[10px] pt-1 border-t border-white/10">
-                        Rates based on historical Aave/Compound data.{" "}
-                        <a
-                          href="https://aavescan.com/"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300 underline"
-                        >
-                          Aavescan
-                        </a>
+                      <div className="text-white/60 text-[10px]">
+                        6.5% average (Aave/Compound typical rate)
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-white/60">
-                      Custom APY rates. Adjust in Advanced Settings below.
+                    <div className="text-white/40 text-[10px] pt-1 border-t border-white/10">
+                      Rates based on historical Aave/Compound data.{" "}
+                      <a
+                        href="https://aavescan.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 underline"
+                      >
+                        Aavescan
+                      </a>
                     </div>
-                  )
+                  </div>
                 }
               />
               <StatCard
@@ -870,11 +887,11 @@ export default function SimulatorPage() {
                       }
                       minHealth={
                         state.marketConditions.fcmMinHealth ??
-                        PROTOCOL_CONFIG.minHealth
+                        tokenThresholds.minHealth
                       }
                       targetHealth={
                         state.marketConditions.fcmTargetHealth ??
-                        PROTOCOL_CONFIG.targetHealth
+                        tokenThresholds.targetHealth
                       }
                     />
 
@@ -905,12 +922,14 @@ export default function SimulatorPage() {
                       }
                       minHealth={
                         state.marketConditions.fcmMinHealth ??
-                        PROTOCOL_CONFIG.minHealth
+                        tokenThresholds.minHealth
                       }
                       targetHealth={
                         state.marketConditions.fcmTargetHealth ??
-                        PROTOCOL_CONFIG.targetHealth
+                        tokenThresholds.targetHealth
                       }
+                      fyvBalance={state.fcm.fyvBalance}
+                      fyvYieldEarned={state.fcm.fyvYieldEarned}
                     />
                   </div>
                 </motion.div>
@@ -1069,6 +1088,9 @@ interface PositionPanelProps {
   debtSymbol: string;
   minHealth: number;
   targetHealth: number;
+  // FYV (Flow Yield Vault) - FCM only
+  fyvBalance?: number;
+  fyvYieldEarned?: number;
 }
 
 function PositionPanel({
@@ -1089,6 +1111,8 @@ function PositionPanel({
   debtSymbol,
   minHealth,
   targetHealth,
+  fyvBalance,
+  fyvYieldEarned,
 }: PositionPanelProps) {
   const isFCM = type === "fcm";
   const isLiquidated = status === "liquidated";
@@ -1197,6 +1221,45 @@ function PositionPanel({
             maximumFractionDigits: 0,
           })} ${debtSymbol}`}
         />
+
+        {/* Total Position Value - FCM only */}
+        {isFCM && fyvBalance !== undefined && fyvBalance > 0 && (
+          <div className="border border-cyan-500/20 rounded-lg p-2 mt-2 bg-cyan-500/5">
+            <div className="flex items-center gap-2 mb-2">
+              <Coins className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-xs font-medium text-cyan-400">Position Breakdown</span>
+            </div>
+            <div className="space-y-1.5 pl-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/50">ALP Equity</span>
+                <span className="text-xs font-mono text-white/70">
+                  {formatCurrencyCompact(collateral - debt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/50">FYV Balance</span>
+                <span className="text-xs font-mono text-cyan-400">
+                  {formatCurrencyCompact(fyvBalance)}
+                </span>
+              </div>
+              {fyvYieldEarned !== undefined && fyvYieldEarned > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/40 pl-2">↳ incl. yield</span>
+                  <span className="text-xs font-mono text-emerald-400/70">
+                    {formatCurrencyCompact(fyvYieldEarned)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-cyan-500/20 pt-1.5 mt-1">
+                <span className="text-xs text-white/60 font-medium">Total Value</span>
+                <span className="text-xs font-mono text-white font-medium">
+                  {formatCurrencyCompact((collateral - debt) + fyvBalance)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <MetricRow
           label="Interest Paid"
           value={formatCurrencyCompact(interestPaid)}
@@ -1334,6 +1397,13 @@ function EventRow({ event }: EventRowProps) {
         return <Timer className="w-4 h-4 text-amber-400" />;
       case "warning":
         return <AlertTriangle className="w-4 h-4 text-amber-400" />;
+      // FYV (Flow Yield Vault) events
+      case "fyv_deploy":
+        return <Upload className="w-4 h-4 text-blue-400" />;
+      case "fyv_yield":
+        return <Coins className="w-4 h-4 text-cyan-400" />;
+      case "fyv_withdraw":
+        return <ArrowRight className="w-4 h-4 text-amber-400" />;
       default:
         return <Activity className="w-4 h-4" />;
     }
@@ -1386,6 +1456,28 @@ function EventRow({ event }: EventRowProps) {
     if (event.type === "yield_applied") {
       return (
         <span className="text-sm text-emerald-400 font-medium">
+          {event.action}
+        </span>
+      );
+    }
+    // FYV events
+    if (event.type === "fyv_deploy") {
+      return (
+        <span className="text-sm text-blue-400 font-medium">
+          {event.action}
+        </span>
+      );
+    }
+    if (event.type === "fyv_yield") {
+      return (
+        <span className="text-sm text-cyan-400 font-medium">
+          {event.action}
+        </span>
+      );
+    }
+    if (event.type === "fyv_withdraw") {
+      return (
+        <span className="text-sm text-amber-400 font-medium">
           {event.action}
         </span>
       );
