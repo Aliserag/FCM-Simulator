@@ -124,29 +124,36 @@ export const INTRADAY_CHECKPOINTS = 4
  * Per FCM architecture: Borrowed MOET is deployed to FYV via DrawDownSink.
  * FYV generates yield through various DeFi strategies (LP positions, farming, lending).
  *
- * These rates reflect historic stablecoin DeFi yields:
- * - 2020: DeFi Summer - high yields as protocols competed for liquidity
- * - 2021: Peak yield farming - extreme yields during bull market
- * - 2022: Bear market - reduced yields, capital flight
- * - 2023: Recovery - moderate yields returning
- * - 2024-2025: Bull market - healthy yields
+ * These rates are based on actual historic stablecoin DeFi yields:
  *
- * Reference: /docs/FCM-REFERENCE.md
+ * Research Sources:
+ * - Aave/Compound base lending: 2-7% typical, spikes to 10-14% in high demand
+ * - Curve 3pool: 15-34% in 2021 (incl CRV rewards), crashed to <1% by Jan 2023
+ * - CoinDesk (Jan 2023): 3pool at 0.98% APY vs 3.54% Treasury yield
+ * - Transfi/Bitget (2024-25): DeFi protocols 5-12%, advanced strategies 20-30%
+ *
+ * FYV uses optimized strategies (not just base lending), so rates fall between
+ * base lending (2-7%) and aggressive yield farming (20-30%).
+ *
+ * References:
+ * - https://aavescan.com/
+ * - https://www.coindesk.com/markets/2023/01/31/stablecoins-seem-unattractive-as-the-gap-between-3pools-apy-and-treasury-yields-widens
+ * - https://www.transfi.com/blog/stablecoin-yields-in-2025-mapping-risk-return-and-protocol-dominance
  */
 export const FYV_HISTORIC_YIELDS: Record<number, number> = {
-  2020: 0.15,  // 15% APY - DeFi summer
-  2021: 0.20,  // 20% APY - Peak yield farming
-  2022: 0.08,  // 8% APY - Bear market
-  2023: 0.10,  // 10% APY - Recovery
-  2024: 0.12,  // 12% APY - Bull market
-  2025: 0.12,  // 12% APY - Continued bull
+  2020: 0.12,  // 12% APY - DeFi Summer, yields spiked 10-15% on lending platforms
+  2021: 0.18,  // 18% APY - Peak bull, double-digit yields common, Curve 15-34%
+  2022: 0.05,  // 5% APY - Bear market, TVL down 70%, massive capital flight
+  2023: 0.04,  // 4% APY - Curve 3pool <1%, Treasury yields higher than DeFi
+  2024: 0.08,  // 8% APY - Bull market return, Aave/Curve 5-12%
+  2025: 0.10,  // 10% APY - Strong bull, elevated borrowing demand
 }
 
 /**
  * Get FYV yield rate for a specific year
  */
 export function getFYVYieldRate(year: number): number {
-  return FYV_HISTORIC_YIELDS[year] ?? 0.10  // Default 10% if year not found
+  return FYV_HISTORIC_YIELDS[year] ?? 0.06  // Default 6% if year not found
 }
 
 /**

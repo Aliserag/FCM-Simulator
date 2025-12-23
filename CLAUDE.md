@@ -157,6 +157,20 @@ Collateral deposited in FCM earns supply APY based on the year:
 | 2023 | 4.0% |
 | 2024-2025 | 5.0% |
 
+### FYV (Flow Yield Vault) Yields
+Borrowed MOET is deployed to FYV via DrawDownSink. FYV generates yield through DeFi strategies (LP positions, farming, lending). These rates are based on actual historic stablecoin DeFi yields:
+
+| Year | FYV APY | Market Context |
+|------|---------|----------------|
+| 2020 | 12% | DeFi Summer - yields spiked 10-15% |
+| 2021 | 18% | Peak bull run - double-digit yields common |
+| 2022 | 5% | Bear market - TVL down 70%, capital flight |
+| 2023 | 4% | Recovery - Curve 3pool <1%, Treasury yields higher |
+| 2024 | 8% | Bull market return - Aave/Curve 5-12% |
+| 2025 | 10% | Strong bull - elevated borrowing demand |
+
+**Sources**: [Aavescan](https://aavescan.com/), [CoinDesk](https://www.coindesk.com/markets/2023/01/31/stablecoins-seem-unattractive-as-the-gap-between-3pools-apy-and-treasury-yields-widens), [Transfi](https://www.transfi.com/blog/stablecoin-yields-in-2025-mapping-risk-return-and-protocol-dominance)
+
 ### Conditional Yield Application
 FCM applies yield differently based on health status:
 

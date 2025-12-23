@@ -108,7 +108,7 @@ export default function SimulatorPage() {
   });
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
 
   // Handler for starting simulation
   const handleStartSimulation = useCallback(() => {
@@ -222,7 +222,7 @@ export default function SimulatorPage() {
         {/* Results Section */}
         <>
             {/* Sidebar + Chart Row - Stack on mobile, side-by-side on desktop */}
-            <div className="flex flex-col lg:flex-row gap-4 mb-6 lg:items-stretch">
+            <div className="flex flex-col lg:flex-row gap-4 mb-6 lg:items-stretch lg:min-h-[500px]">
               {/* Sidebar (mobile renders above via internal component, desktop renders here) */}
               <Sidebar
                 dataMode={state.marketConditions.dataMode}
@@ -268,9 +268,9 @@ export default function SimulatorPage() {
               />
 
               {/* Simulation Chart with Timeline Controls + Position Summary */}
-              <div className="flex-1 flex flex-col gap-4">
+              <div className="flex-1 flex flex-col gap-4 h-full">
                 {state.chartData.length > 0 && (
-                <div className="flex-1 relative rounded-xl overflow-hidden">
+                <div className="flex-1 relative rounded-xl overflow-hidden h-full">
                   {/* Outer glow/border effect */}
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[rgba(255,255,255,0.08)] via-[rgba(255,255,255,0.02)] to-transparent" />
 
@@ -985,7 +985,7 @@ export default function SimulatorPage() {
           <p className="mt-2 text-white/30 text-xs max-w-lg mx-auto">
             Simplified simulation for educational purposes. Assumes perfect
             rebalancing execution (no slippage or MEV), synthetic price
-            patterns, and no protocol fees.
+            patterns, and no protocol fees. FYV yields based on historic Aave/Curve stablecoin rates.
           </p>
           <div className="flex items-center justify-center gap-4 mt-3">
             <a
