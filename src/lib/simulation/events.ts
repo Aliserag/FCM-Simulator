@@ -364,10 +364,29 @@ export function generateAllEvents(
     }
   }
 
+  // Find liquidation day first (if liquidated) to avoid showing warnings after liquidation
+  let traditionalLiquidationDay: number | null = null
+  if (traditionalPosition.status === 'liquidated') {
+    let debtTracker = initialBorrow
+    for (let d = 1; d <= day; d++) {
+      const priceAtDay = getPriceAtDay(d, basePrice, marketConditions)
+      debtTracker = initialBorrow * Math.pow(1 + PROTOCOL_CONFIG.borrowAPY / 365, d)
+      const healthAtDay = calculateHealthFactor(initialCollateral, priceAtDay, debtTracker)
+      if (healthAtDay < PROTOCOL_CONFIG.liquidationThreshold) {
+        traditionalLiquidationDay = d
+        break
+      }
+    }
+  }
+
   // Add traditional warning events at key health thresholds using actual prices
+  // Skip warnings after liquidation day
   const warningDays = [30, 60, 90, 120, 150, 180]
   let debtAtDay = initialBorrow
   for (const wd of warningDays) {
+    // Skip if past liquidation day
+    if (traditionalLiquidationDay !== null && wd >= traditionalLiquidationDay) continue
+
     if (wd <= day) {
       // Get ACTUAL price at this day (historic or simulated)
       const priceAtDay = getPriceAtDay(wd, basePrice, marketConditions)
@@ -408,13 +427,21 @@ export function generateAllEvents(
 
   for (const monthDay of monthlyDays) {
     if (monthDay <= day) {
-      // Calculate interest accrued this month (both positions)
+      // Skip Traditional events after liquidation
+      const traditionalStillActive = traditionalLiquidationDay === null || monthDay < traditionalLiquidationDay
+
+      // Calculate interest accrued this month
       const currentMonthDebt = initialBorrow * Math.pow(1 + borrowAPY / 365, monthDay)
       const interestThisMonth = currentMonthDebt - prevMonthDebt
       prevMonthDebt = currentMonthDebt
 
-      // Add monthly interest event (affects both positions)
-      events.push(generateMonthlyInterestEvent(monthDay, 'both', interestThisMonth, borrowAPY))
+      // Add monthly interest event (only 'both' if Traditional still active)
+      events.push(generateMonthlyInterestEvent(
+        monthDay,
+        traditionalStillActive ? 'both' : 'fcm',
+        interestThisMonth,
+        borrowAPY
+      ))
 
       // Calculate FCM yield earned this month
       const priceAtMonth = getPriceAtDay(monthDay, basePrice, marketConditions)
@@ -447,22 +474,8 @@ export function generateAllEvents(
   }
 
   // Add liquidation event if traditional position was liquidated
-  if (traditionalPosition.status === 'liquidated') {
-    // Find liquidation day using actual prices
-    let liquidationDay = day
-    let debtTracker = initialBorrow
-    for (let d = 1; d <= day; d++) {
-      // Get ACTUAL price at this day
-      const priceAtDay = getPriceAtDay(d, basePrice, marketConditions)
-      // Accrue daily interest
-      debtTracker += (debtTracker * PROTOCOL_CONFIG.borrowAPY) / 365
-      const healthAtDay = calculateHealthFactor(initialCollateral, priceAtDay, debtTracker)
-
-      if (healthAtDay < PROTOCOL_CONFIG.liquidationThreshold) {
-        liquidationDay = d
-        break
-      }
-    }
+  if (traditionalPosition.status === 'liquidated' && traditionalLiquidationDay !== null) {
+    const liquidationDay = traditionalLiquidationDay
 
     events.push(generateLiquidationEvent(
       liquidationDay,
