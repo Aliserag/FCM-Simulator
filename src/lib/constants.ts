@@ -389,8 +389,8 @@ export const TOOLTIPS: Record<string, TooltipContent> = {
   },
   collateralFactor: {
     title: 'Collateral Factor (80%)',
-    content: 'Only 80% of your FLOW\'s value counts as borrowing power. This safety buffer protects the protocol from sudden price drops.',
-    example: '$1000 FLOW → $800 effective collateral',
+    content: 'Only 80% of your collateral\'s value counts as borrowing power. This safety buffer protects the protocol from sudden price drops.',
+    example: '$1000 ETH → $800 effective collateral',
   },
   rebalancing: {
     title: 'Automatic Rebalancing',

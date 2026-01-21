@@ -38,10 +38,11 @@ import {
   formatPercent,
   formatTokenAmount,
 } from "@/lib/utils";
-import { TOOLTIPS, PROTOCOL_CONFIG, getTokenFCMThresholds } from "@/lib/constants";
+import { TOOLTIPS, PROTOCOL_CONFIG, getTokenFCMThresholds, getSupplyRate, getBorrowRate } from "@/lib/constants";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SimulationEvent } from "@/types";
-import { getTokenSupplyAPY, getToken } from "@/data/historicPrices";
+import { getToken } from "@/data/historicPrices";
+import { dayToYearAndDay } from "@/data/multiYearPrices";
 import { calculateLiquidationPrice } from "@/lib/simulation/calculations";
 import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { RebalanceToast } from "@/components/RebalanceToast";
@@ -749,11 +750,11 @@ export default function SimulatorPage() {
               <StatCard
                 label="APY Rates"
                 value={formatPercent(
-                  getTokenSupplyAPY(state.marketConditions.collateralToken) * 100,
+                  getSupplyRate(dayToYearAndDay(state.currentDay, state.marketConditions.startYear ?? 2020).year, state.marketConditions.collateralToken) * 100,
                   1
                 )}
                 subValue={`${formatPercent(
-                  -PROTOCOL_CONFIG.borrowAPY * 100,
+                  -getBorrowRate(dayToYearAndDay(state.currentDay, state.marketConditions.startYear ?? 2020).year) * 100,
                   1
                 )} borrow`}
                 subValueColor="text-red-400"
@@ -762,21 +763,30 @@ export default function SimulatorPage() {
                   <div className="space-y-2">
                     <div>
                       <div className="font-semibold text-emerald-400">
-                        Supply APY (by year)
+                        ETH Supply APY (by year)
                       </div>
                       <ul className="text-white/60 ml-1 text-[10px] space-y-0.5">
-                        <li>2020: 2.5% • 2021: 4% (DeFi Summer)</li>
-                        <li>2022: 3% • 2023: 4%</li>
-                        <li>2024-25: 5% (bull market)</li>
+                        <li>2020: 0.5% • 2021: 2% (DeFi Summer)</li>
+                        <li>2022-23: 1% • 2024: 1.3% • 2025: 1.5%</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-emerald-400">
+                        BTC Supply APY (by year)
+                      </div>
+                      <ul className="text-white/60 ml-1 text-[10px] space-y-0.5">
+                        <li>2020: 2.5% • 2021: 1.2% • 2022: 0.6%</li>
+                        <li>2023: 0.4% • 2024-25: &lt;0.1%</li>
                       </ul>
                     </div>
                     <div>
                       <div className="font-semibold text-red-400">
-                        Borrow APY
+                        Borrow APY (by year)
                       </div>
-                      <div className="text-white/60 text-[10px]">
-                        6.5% average (Aave/Compound typical rate)
-                      </div>
+                      <ul className="text-white/60 ml-1 text-[10px] space-y-0.5">
+                        <li>2020: 7% • 2021: 5% • 2022: 3%</li>
+                        <li>2023: 5% • 2024-25: 5.5%</li>
+                      </ul>
                     </div>
                     <div className="text-white/40 text-[10px] pt-1 border-t border-white/10">
                       Rates based on historical Aave/Compound data.{" "}
