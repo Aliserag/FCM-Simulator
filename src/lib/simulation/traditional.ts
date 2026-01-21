@@ -1,5 +1,5 @@
 import { PositionState, MarketConditions } from '@/types'
-import { PROTOCOL_CONFIG } from '@/lib/constants'
+import { PROTOCOL_CONFIG, getBorrowRateForDay, getSupplyRateForDay, getTraditionalYieldRateForDay } from '@/lib/constants'
 import {
   calculateHealthFactor,
   calculateCollateralValueUSD,
@@ -133,11 +133,16 @@ export function simulateTraditionalPosition(
       ? getTokenSupplyAPY(marketConditions.collateralToken)
       : PROTOCOL_CONFIG.supplyAPY)
 
+  // Get start year for rate lookups (historic mode)
+  const startYear = marketConditions?.startYear ?? 2020
+
   // Track state through simulation
   let collateralAmount = initialCollateral
   let debtAmount = initialBorrow
   let totalInterestPaid = 0
-  let totalYieldEarned = 0
+  let totalYieldEarned = 0  // Supply yield on collateral
+  let borrowedFundsYieldEarned = 0  // Yield from manual farming of borrowed stablecoins
+  let borrowedFundsBalance = initialBorrow  // Track borrowed funds like a simple yield account
   let liquidated = false
   let liquidationDay = 0
 
@@ -148,20 +153,38 @@ export function simulateTraditionalPosition(
 
     // 1. Earn daily supply yield on collateral value
     // Traditional lending earns yield, but does NOT auto-apply it to debt
-    // User would need to manually claim and use it (not simulated here)
+    // Historic mode: Uses year-based rates from actual Aave/Compound data
     const collateralValueUSD = collateralAmount * dayPrice
-    const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
+    const effectiveSupplyAPY = marketConditions?.dataMode === 'historic'
+      ? getSupplyRateForDay(d, startYear, marketConditions.collateralToken ?? 'eth')
+      : tokenSupplyAPY
+    const dailyYield = (collateralValueUSD * effectiveSupplyAPY) / 365
     totalYieldEarned += dailyYield
 
-    // 2. Accrue daily interest on debt
-    const dailyInterest = (debtAmount * borrowAPY) / 365
+    // 2. Traditional user earns yield on borrowed stablecoins (manual yield farming)
+    // This models what DeFi users typically do: borrow stables and deploy to yield strategies
+    // Traditional yields are LOWER than FYV due to manual management, gas costs, etc.
+    // Historic mode: Uses year-based rates based on DeFi farming returns
+    if (marketConditions?.dataMode === 'historic') {
+      const tradYieldRate = getTraditionalYieldRateForDay(d, startYear)
+      const dailyBorrowedYield = (borrowedFundsBalance * tradYieldRate) / 365
+      borrowedFundsBalance += dailyBorrowedYield  // Compound into balance
+      borrowedFundsYieldEarned += dailyBorrowedYield
+    }
+
+    // 3. Accrue daily interest on debt
+    // Historic mode: Uses year-based rates from actual Aave/Compound data
+    const effectiveBorrowAPY = marketConditions?.dataMode === 'historic'
+      ? getBorrowRateForDay(d, startYear)
+      : borrowAPY
+    const dailyInterest = (debtAmount * effectiveBorrowAPY) / 365
     debtAmount += dailyInterest
     totalInterestPaid += dailyInterest
 
     // Traditional lending has NO automatic yield application to debt
     // This is a key difference from FCM which auto-applies yield daily
 
-    // 3. Calculate current health factor
+    // 4. Calculate current health factor
     const currentHealth = calculateHealthFactor(
       collateralAmount,
       dayPrice,
@@ -184,14 +207,16 @@ export function simulateTraditionalPosition(
   const healthFactor = liquidated ? 0 : calculateHealthFactor(collateralAmount, currentPrice, debtAmount, collateralFactor)
 
   // Calculate returns using equity-based formula
+  // For Traditional in historic mode: Include borrowed funds balance (like a yield account)
   const initialCollateralValue = initialCollateral * basePrice
-  const totalReturns = calculateNetReturns(
-    liquidated ? 0 : collateralValueUSD,
-    initialCollateralValue,
-    liquidated ? 0 : debtAmount,
-    initialBorrow,
-    liquidated
-  )
+
+  // Traditional Total Value = (Collateral - Debt) + BorrowedFundsBalance
+  // Similar to FCM's: ALP Equity + FYV Balance
+  const alpEquity = collateralValueUSD - debtAmount
+  const totalValue = liquidated ? 0 : (alpEquity + borrowedFundsBalance)
+
+  // Returns based on Total Value change
+  const totalReturns = liquidated ? -initialCollateralValue : (totalValue - initialCollateralValue)
 
   // Determine status
   let status: 'healthy' | 'warning' | 'liquidated' = 'healthy'
@@ -211,8 +236,11 @@ export function simulateTraditionalPosition(
     status,
     totalReturns,
     accruedInterest: totalInterestPaid,
-    earnedYield: totalYieldEarned, // Traditional earns yield but must manually manage it
+    earnedYield: totalYieldEarned + borrowedFundsYieldEarned, // Supply yield + borrowed funds yield
     rebalanceCount: 0,
+    // Traditional borrowed funds tracking (like FCM's FYV)
+    borrowedFundsBalance: liquidated ? 0 : borrowedFundsBalance,
+    borrowedFundsYieldEarned: borrowedFundsYieldEarned,
   }
 }
 

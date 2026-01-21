@@ -1,5 +1,5 @@
 import { PositionState, MarketConditions } from '@/types'
-import { PROTOCOL_CONFIG, getVolatilityThresholds, getTokenFCMThresholds, INTRADAY_CHECKPOINTS, getFYVYieldRateForDay } from '@/lib/constants'
+import { PROTOCOL_CONFIG, getVolatilityThresholds, getTokenFCMThresholds, INTRADAY_CHECKPOINTS, getFYVYieldRateForDay, getBorrowRateForDay, getSupplyRateForDay } from '@/lib/constants'
 import {
   calculateHealthFactor,
   calculateCollateralValueUSD,
@@ -324,9 +324,13 @@ export function simulateFCMPosition(
     const dayPrice = dayEndPrice
 
     // 1. Earn daily supply yield on collateral value (deposited collateral earns interest)
-    // Uses token-specific APY: BTC 1.5%, ETH 2.5%, SOL 5%, AVAX 4%
+    // Historic mode: Uses year-based rates from actual Aave/Compound data
+    // Simulated mode: Uses token-specific static rates
     const collateralValueUSD = state.collateralAmount * dayPrice
-    const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
+    const effectiveSupplyAPY = marketConditions?.dataMode === 'historic'
+      ? getSupplyRateForDay(d, startYear, marketConditions.collateralToken ?? 'eth')
+      : tokenSupplyAPY
+    const dailyYield = (collateralValueUSD * effectiveSupplyAPY) / 365
     state.accumulatedYield += dailyYield
     state.totalYieldEarned += dailyYield
 
@@ -339,7 +343,12 @@ export function simulateFCMPosition(
     state.fyvTotalYieldEarned += dailyFYVYield
 
     // 3. Accrue daily interest on debt (this is a lending fee)
-    const dailyInterest = (state.debtAmount * borrowAPY) / 365
+    // Historic mode: Uses year-based rates from actual Aave/Compound data
+    // Simulated mode: Uses static borrow APY from params
+    const effectiveBorrowAPY = marketConditions?.dataMode === 'historic'
+      ? getBorrowRateForDay(d, startYear)
+      : borrowAPY
+    const dailyInterest = (state.debtAmount * effectiveBorrowAPY) / 365
     state.debtAmount += dailyInterest
     state.totalInterestPaid += dailyInterest
 
@@ -677,8 +686,12 @@ export function getFCMRebalanceEvents(
     const dayPrice = dayEndPrice
 
     // 1. Earn daily supply yield on collateral value
+    // Historic mode: Uses year-based rates from actual Aave/Compound data
     const collateralValueUSD = state.collateralAmount * dayPrice
-    const dailyYield = (collateralValueUSD * tokenSupplyAPY) / 365
+    const effectiveSupplyAPY = marketConditions?.dataMode === 'historic'
+      ? getSupplyRateForDay(d, startYear, marketConditions.collateralToken ?? 'eth')
+      : tokenSupplyAPY
+    const dailyYield = (collateralValueUSD * effectiveSupplyAPY) / 365
     state.accumulatedYield += dailyYield
 
     // 2. FYV earns yield on deployed MOET
@@ -687,7 +700,11 @@ export function getFCMRebalanceEvents(
     state.fyvBalance += dailyFYVYield
 
     // 3. Add interest on debt
-    const dailyInterest = (state.debtAmount * borrowAPY) / 365
+    // Historic mode: Uses year-based rates from actual Aave/Compound data
+    const effectiveBorrowAPY = marketConditions?.dataMode === 'historic'
+      ? getBorrowRateForDay(d, startYear)
+      : borrowAPY
+    const dailyInterest = (state.debtAmount * effectiveBorrowAPY) / 365
     state.debtAmount += dailyInterest
 
     // 4. Calculate health at end of day

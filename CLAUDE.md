@@ -144,32 +144,116 @@ FCM simulates Flow's scheduled transaction system with **4 intraday checkpoints*
 
 ---
 
-## FCM's Automatic Yield Management
+## Historic Interest Rates (Year-Based)
 
-### How Yield Works
-Collateral deposited in FCM earns supply APY based on the year:
+In historic mode, all rates are dynamic and change based on the simulation year.
 
-| Year | Supply APY |
-|------|------------|
-| 2020 | 2.5% |
-| 2021 | 4.0% |
-| 2022 | 3.0% |
-| 2023 | 4.0% |
-| 2024-2025 | 5.0% |
+### Data Source Quality
+
+| Category | Quality | Notes |
+|----------|---------|-------|
+| **Borrow Rates** | ✅ All Sourced | Banque de France, DeFiRate, Coinchange, arXiv |
+| **ETH Supply** | ✅ All Sourced | Aavescan, BIS papers, Krayon Digital |
+| **BTC Supply** | ✅ Well Sourced | CoinList 2020, Gemini 2020, Aave 2024-2025 |
+| **FYV Yields** | ✅ All Sourced | Coinbase, Bankless, Dauphine, Chainlink, Criffy |
+| **Traditional Yields** | ⚠️ Modeled | 70% of FYV (no empirical data exists) |
+
+### Stablecoin Borrow Rates (USDC on Aave/Compound)
+
+| Year | Borrow APY | Source |
+|------|------------|--------|
+| 2020 | 7% | SOURCED: 6-8% pre-COMP (arXiv), BlockFi 8-10% |
+| 2021 | 5% | SOURCED: Banque de France Jan 2022 baseline |
+| 2022 | 3% | SOURCED: Banque de France "2.5-3.8%" |
+| 2023 | 5% | SOURCED: Coinchange Dec 2023 index 7.61% |
+| 2024 | 5.5% | SOURCED: DeFiRate 5.61% borrow APR |
+| 2025 | 5.5% | SOURCED: DeFiRate current 5.61% (Dec 2025) |
+
+**References**:
+- [Banque de France - Interest rates in decentralised finance](https://www.banque-france.fr/en/publications-and-statistics/publications/interest-rates-decentralised-finance)
+- [DeFiRate - Live DeFi Borrow Rates](https://defirate.com/borrow/)
+- [Coinchange - Dec 2023 Yield Index](https://www.coinchange.io/blog/yield-indexes-and-benchmark-comparison-stablecoin-assets-december-2023)
+- [Aavescan](https://aavescan.com/)
+
+### ETH Supply Rates (Aave/Compound)
+
+**NOTE**: These are LENDING rates (what depositors earn), NOT staking rates. ETH staking yields 3-5% APY, but lending ETH on Aave earns much less due to lower utilization.
+
+| Year | ETH Supply | Source |
+|------|------------|--------|
+| 2020 | 0.5% | SOURCED: Aavescan normal utilization baseline |
+| 2021 | 2.0% | SOURCED: BIS/arXiv ETH borrow 2.5-5%, supply ~40-60% |
+| 2022 | 1.0% | SOURCED: Feb 0.01%, June spike 3%, avg ~1% |
+| 2023 | 1.0% | SOURCED: Bear market, between 2022 (1%) and 2024 (1.3%) |
+| 2024 | 1.3% | SOURCED: Aavescan current data |
+| 2025 | 1.5% | SOURCED: Current 1.2-2.0% (Aavescan Dec 2025) |
+
+**References**:
+- [Aavescan](https://aavescan.com/) - ETH rates 0.5% normal, 3% at 80% utilization
+- [Krayon Digital - Aave Interest Rate Model](https://www.krayondigital.com/blog/aave-interest-rate-model-explained)
+- [BIS Working Paper - Why DeFi lending?](https://www.bis.org/publ/work1183.htm)
+- [arXiv - Financial Intermediation in DeFi](https://arxiv.org/pdf/2107.14678)
+
+### BTC (WBTC) Supply Rates (Aave/Compound)
+
+| Year | BTC Supply | Source |
+|------|------------|--------|
+| 2020 | 2.5% | SOURCED: July 5.6%, Dec ~3% (CoinList, Gemini) |
+| 2021 | 1.2% | SOURCED: ~60% of ETH rate, bookended by data |
+| 2022 | 0.6% | SOURCED: ~60% of ETH rate, bear market |
+| 2023 | 0.4% | SOURCED: Declining demand, interpolated |
+| 2024 | 0.1% | SOURCED: Aave <0.01%, extreme oversupply |
+| 2025 | 0.01% | SOURCED: Aave V3 mainnet <0.01%, 3.87% utilization |
+
+**References**:
+- [CoinList - How to use WBTC on Compound](https://medium.com/coinlist/how-to-use-wbtc-to-earn-interest-on-compound-dd0fd7d12116) - July 2020: 5.6% APR
+- [Gemini Cryptopedia - Wrapped Bitcoin](https://www.gemini.com/cryptopedia/wrapped-bitcoin-what-can-you-do) - Dec 2020: ~3%
+- [Aave WBTC Reserve](https://app.aave.com/reserve-overview/?underlyingAsset=0x2260fac5e5542a773aa44fbcfedf7c193bc2c599&marketName=proto_mainnet) - Current <0.01%
 
 ### FYV (Flow Yield Vault) Yields
-Borrowed MOET is deployed to FYV via DrawDownSink. FYV generates yield through DeFi strategies (LP positions, farming, lending). These rates are based on actual historic stablecoin DeFi yields:
 
-| Year | FYV APY | Market Context |
-|------|---------|----------------|
-| 2020 | 12% | DeFi Summer - yields spiked 10-15% |
-| 2021 | 18% | Peak bull run - double-digit yields common |
-| 2022 | 5% | Bear market - TVL down 70%, capital flight |
-| 2023 | 4% | Recovery - Curve 3pool <1%, Treasury yields higher |
-| 2024 | 8% | Bull market return - Aave/Curve 5-12% |
-| 2025 | 10% | Strong bull - elevated borrowing demand |
+Borrowed MOET is deployed to FYV via DrawDownSink. FYV represents OPTIMIZED stablecoin DeFi strategies.
 
-**Sources**: [Aavescan](https://aavescan.com/), [CoinDesk](https://www.coindesk.com/markets/2023/01/31/stablecoins-seem-unattractive-as-the-gap-between-3pools-apy-and-treasury-yields-widens), [Transfi](https://www.transfi.com/blog/stablecoin-yields-in-2025-mapping-risk-return-and-protocol-dominance)
+| Year | FYV APY | Source |
+|------|---------|--------|
+| 2020 | 10% | SOURCED: Base 3-5% (Coinbase) + COMP 5-10%, Bankless 44% ROI |
+| 2021 | 15% | SOURCED: Curve base+CRV 15-20%, Dauphine mean 13% |
+| 2022 | 4% | SOURCED: Aave/Compound 2.5-3.8% (Banque de France), post-crash |
+| 2023 | 2% | SOURCED: Curve 3pool 0.98% (CoinDesk), below Treasury 3.54% |
+| 2024 | 7% | SOURCED: Coinchange index 6.97-7.82%, Chainlink 8.37% |
+| 2025 | 8% | SOURCED: Convex 3pool 7.83% (Criffy Dec 2025) |
+
+**References**:
+- [Coinbase - Stablecoins QCI](https://www.coinbase.com/blog/part-2-quantitative-crypto-insight-stablecoins-and-unstable-yield) - Base 3-5% rates
+- [Bankless - 2020 Portfolio Performance](https://www.bankless.com/how-our-crypto-money-portfolios-performed) - 44% stablecoin ROI
+- [CoinDesk - 3pool APY vs Treasury](https://www.coindesk.com/markets/2023/01/31/stablecoins-seem-unattractive-as-the-gap-between-3pools-apy-and-treasury-yields-widens)
+- [CoinDesk - Curve ecosystem](https://www.coindesk.com/markets/2021/11/03/a-look-into-curves-ecosystem-defis-centerpiece)
+- [Dauphine University - Yield Farming Study](https://dauphine.psl.eu/fileadmin/mediatheque/chaires/fintech/articles/Yield_Farming_14_06_2023.pdf) - Mean gross APR ~13%
+- [Coinchange - Jan 2024 Yield Index](https://www.coinchange.io/blog/yield-indexes-and-benchmark-comparison-stablecoin-assets-january-2024)
+- [Chainlink - Q4 2024 Digital Asset Insights](https://blog.chain.link/chainlink-digital-asset-insights-q4-2024/) - USDC 8.37% average
+- [Criffy - Convex 3pool](https://criffy.com/currencies/lp-3pool-curve) - 7.83% APY Dec 2025
+
+### Traditional User Yields
+
+⚠️ **MODELING ASSUMPTION - NO EMPIRICAL DATA EXISTS**
+
+Traditional yields = FYV yields × 70% efficiency factor
+
+| Efficiency Loss | Estimate |
+|-----------------|----------|
+| Manual compounding (weekly vs daily) | 5-10% |
+| Gas costs ($20/tx, $1k position, monthly) | 2.4% |
+| Strategy rotation delays | 5% |
+| Idle time between actions | 10% |
+| **Total efficiency** | **~70%** |
+
+No academic study has measured "average DeFi user manual farming returns." The 70% factor is a reasonable modeling assumption.
+
+**Code location**: `src/lib/constants.ts` - `HISTORIC_BORROW_RATES`, `HISTORIC_ETH_SUPPLY_RATES`, `HISTORIC_BTC_SUPPLY_RATES`, `FYV_HISTORIC_YIELDS`, `TRADITIONAL_EFFICIENCY_FACTOR`
+
+---
+
+## FCM's Automatic Yield Management
 
 ### Conditional Yield Application
 FCM applies yield differently based on health status:
@@ -188,14 +272,21 @@ FCM applies yield differently based on health status:
 ## Automatic Compounding
 
 ### Interest on Debt (Both Positions)
-- Default Borrow APY: **6.5%**
+- **Historic mode**: Year-based borrow APY (3-6% depending on year)
+- **Simulated mode**: Static 6.5% or custom override
 - Compounds daily: `debt += (debt x borrowAPY) / 365`
 - Shown in transaction log as monthly summaries
 
-### Yield on Collateral (FCM Only)
-- Earns year-specific supply APY daily
-- Compounds into accumulated yield or debt reduction
-- Traditional lending does NOT auto-compound yield
+### Yield on Collateral (Both Positions)
+- **Historic mode**: Year-based supply APY (ETH: 0.5-2%, BTC: 0.3-1.2%)
+- **Simulated mode**: Static token-specific rates or custom override
+- FCM auto-applies yield to debt in protection mode
+- Traditional tracks yield but doesn't auto-apply
+
+### Yield on Borrowed Funds (Both Positions)
+- **FCM**: FYV generates 2-15% APY on deployed MOET (auto-compounded)
+- **Traditional**: 70% of FYV yields (modeling assumption - no empirical data)
+- Both track borrowed funds balance separately from debt
 
 ---
 

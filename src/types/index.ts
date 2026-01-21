@@ -16,6 +16,10 @@ export interface PositionState {
   // Per FCM architecture: Borrowed MOET is deployed to FYV via DrawDownSink
   fyvBalance?: number           // Current MOET balance in FYV (earning yield)
   fyvYieldEarned?: number       // Cumulative yield earned from FYV strategies
+  // Traditional borrowed funds tracking (historic mode only)
+  // Models manual yield farming on borrowed stablecoins
+  borrowedFundsBalance?: number      // Current balance of borrowed funds (+ yield earned)
+  borrowedFundsYieldEarned?: number  // Cumulative yield earned from manual farming
 }
 
 // Chart data point for visualization

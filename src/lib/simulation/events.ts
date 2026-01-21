@@ -1,5 +1,5 @@
 import { SimulationEvent, PositionState, MarketConditions } from '@/types'
-import { PROTOCOL_CONFIG, getFYVYieldRateForDay } from '@/lib/constants'
+import { PROTOCOL_CONFIG, getFYVYieldRateForDay, getBorrowRateForDay, getSupplyRateForDay, getTraditionalYieldRateForDay } from '@/lib/constants'
 import { generateId } from '@/lib/utils'
 import { getFCMRebalanceEvents, FCMRebalanceEvent } from './fcm'
 import { getTokenPrice, getTokenSupplyAPY, getToken } from '@/data/historicPrices'
@@ -401,19 +401,21 @@ export function generateAllEvents(
   }
 
   // Add monthly interest/yield summary events
-  const borrowAPY = marketConditions?.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY
+  const baseBorrowAPY = marketConditions?.borrowAPY ?? PROTOCOL_CONFIG.borrowAPY
   const tokenSymbol = marketConditions?.collateralToken
     ? (getToken(marketConditions.collateralToken)?.symbol ?? 'TOKEN')
     : 'TOKEN'
-  const supplyAPY = marketConditions?.supplyAPY
+  const token = marketConditions?.collateralToken ?? 'eth'
+  const baseSupplyAPY = marketConditions?.supplyAPY
     ?? (marketConditions?.collateralToken
       ? getTokenSupplyAPY(marketConditions.collateralToken)
       : PROTOCOL_CONFIG.supplyAPY)
   const collateralFactor = marketConditions?.collateralFactor ?? PROTOCOL_CONFIG.collateralFactor
   const fcmTargetHealth = marketConditions?.fcmTargetHealth ?? PROTOCOL_CONFIG.targetHealth
+  const isHistoric = marketConditions?.dataMode === 'historic'
 
-  // Determine start year for FYV yield rate lookup
-  const startYear = marketConditions?.dataMode === 'historic'
+  // Determine start year for rate lookups
+  const startYear = isHistoric
     ? (marketConditions?.startYear ?? 2020)
     : 2024 // Default year for simulated mode
 
@@ -429,6 +431,14 @@ export function generateAllEvents(
     if (monthDay <= day) {
       // Skip Traditional events after liquidation
       const traditionalStillActive = traditionalLiquidationDay === null || monthDay < traditionalLiquidationDay
+
+      // Get year-based rates for historic mode, static rates for simulated mode
+      const borrowAPY = isHistoric
+        ? getBorrowRateForDay(monthDay, startYear)
+        : baseBorrowAPY
+      const supplyAPY = isHistoric
+        ? getSupplyRateForDay(monthDay, startYear, token)
+        : baseSupplyAPY
 
       // Calculate interest accrued this month
       const currentMonthDebt = initialBorrow * Math.pow(1 + borrowAPY / 365, monthDay)
