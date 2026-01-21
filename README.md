@@ -64,7 +64,7 @@ The price data consists of daily closing prices only - no real intraday data. Ho
 - Deposit collateral, borrow stablecoins
 - No automatic protection
 - Liquidated when health factor drops below 1.0 (~13% price drop)
-- 5% liquidation penalty
+- **5% liquidation penalty** (based on [Aave's liquidation bonus](https://docs.aave.com/faq/liquidations) for ETH/stablecoin collateral)
 
 ### FCM (Flow Credit Market)
 - Same initial position as Traditional

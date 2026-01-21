@@ -314,6 +314,7 @@ export default function SimulatorPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={isPlaying ? pause : play}
+                              aria-label={isPlaying ? "Pause simulation" : "Play simulation"}
                               className={cn(
                                 "w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all active:scale-95",
                                 isPlaying
@@ -329,13 +330,14 @@ export default function SimulatorPage() {
                             </button>
                             <button
                               onClick={reset}
+                              aria-label="Reset simulation"
                               className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-[rgba(255,255,255,0.1)] transition-all active:scale-95"
                             >
                               <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
                             </button>
                           </div>
 
-                          <div className="flex items-center gap-0.5 sm:gap-1 bg-[rgba(255,255,255,0.05)] rounded-lg p-1">
+                          <div className="flex items-center gap-0.5 sm:gap-1 bg-[rgba(255,255,255,0.05)] rounded-lg p-1" role="group" aria-label="Playback speed controls">
                             {[
                               { label: "1x", value: 40 },
                               { label: "2x", value: 80 },
@@ -345,8 +347,10 @@ export default function SimulatorPage() {
                               <button
                                 key={speed.value}
                                 onClick={() => setPlaySpeed(speed.value)}
+                                aria-label={`Set playback speed to ${speed.label}`}
+                                aria-pressed={playSpeed === speed.value}
                                 className={cn(
-                                  "px-2.5 sm:px-2 py-1.5 sm:py-1 rounded-md text-xs font-medium transition-all active:scale-95",
+                                  "px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-md text-xs font-medium transition-all active:scale-95",
                                   playSpeed === speed.value
                                     ? "bg-[rgba(255,255,255,0.1)] text-text-primary"
                                     : "text-text-muted hover:text-text-secondary"
@@ -358,7 +362,7 @@ export default function SimulatorPage() {
                           </div>
                         </div>
 
-                        {/* Slider - taller on mobile for easier touch */}
+                        {/* Slider - taller on mobile for easier touch (44px touch target minimum) */}
                         <div className="relative py-2">
                           <input
                             type="range"
@@ -366,7 +370,11 @@ export default function SimulatorPage() {
                             max={state.maxDay}
                             value={state.currentDay}
                             onChange={handleSliderChange}
-                            className="timeline-slider w-full h-2 sm:h-1.5 rounded-full appearance-none cursor-pointer bg-[rgba(255,255,255,0.1)]"
+                            aria-label={`Timeline slider: Day ${state.currentDay} of ${state.maxDay}`}
+                            aria-valuenow={state.currentDay}
+                            aria-valuemin={0}
+                            aria-valuemax={state.maxDay}
+                            className="timeline-slider w-full h-4 sm:h-2 rounded-full appearance-none cursor-pointer bg-[rgba(255,255,255,0.1)]"
                             style={{
                               background: `linear-gradient(to right, #35e5a0 0%, #35e5a0 ${
                                 (state.currentDay / state.maxDay) * 100
@@ -1496,6 +1504,7 @@ function EventRow({ event }: EventRowProps) {
   };
 
   // Render code with hyperlinks for DeFi actions (TopUpSource, Sink, etc.)
+  // All code elements include title attribute for tooltip on truncated text
   const renderCode = () => {
     const code = event.code;
     // Check if this event uses DeFi actions (TopUpSource, Sink, DrawDownSink)
@@ -1509,6 +1518,7 @@ function EventRow({ event }: EventRowProps) {
           href={DOCS_LINKS.defiActions}
           target="_blank"
           rel="noopener noreferrer"
+          title={code}
           className="text-xs text-blue-400 hover:text-blue-300 font-mono mt-1 block truncate underline decoration-blue-400/40 hover:decoration-blue-300"
         >
           {code}
@@ -1522,6 +1532,7 @@ function EventRow({ event }: EventRowProps) {
           href={DOCS_LINKS.scheduledTxn}
           target="_blank"
           rel="noopener noreferrer"
+          title={code}
           className="text-xs text-amber-400 hover:text-amber-300 font-mono mt-1 block truncate underline decoration-amber-400/40 hover:decoration-amber-300"
         >
           {code}
@@ -1529,7 +1540,7 @@ function EventRow({ event }: EventRowProps) {
       );
     }
     return (
-      <code className="text-xs text-blue-400/60 font-mono mt-1 block truncate">
+      <code className="text-xs text-blue-400/60 font-mono mt-1 block truncate" title={code}>
         {code}
       </code>
     );

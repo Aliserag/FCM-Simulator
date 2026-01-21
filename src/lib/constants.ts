@@ -195,7 +195,7 @@ export const HISTORIC_BORROW_RATES: Record<number, number> = {
   2020: 0.07,  // 7% - SOURCED: 6-8% pre-COMP (arXiv), BlockFi competing 8-10%
   2021: 0.05,  // 5% - SOURCED: Banque de France Jan 2022 baseline ~5%
   2022: 0.03,  // 3% - SOURCED: Banque de France "2.5-3.8%" bear market
-  2023: 0.05,  // 5% - SOURCED: Coinchange Dec 2023 DeFi Lending Index 7.61%
+  2023: 0.0761,  // 7.61% - SOURCED: Coinchange Dec 2023 DeFi Lending Index 7.61%
   2024: 0.055, // 5.5% - SOURCED: DeFiRate 5.61% borrow APR, Aavescan data
   2025: 0.055, // 5.5% - SOURCED: DeFiRate current 5.61% (Dec 2025)
 }
@@ -239,7 +239,7 @@ export function getBorrowRateForDay(day: number, startYear: number): number {
 export const HISTORIC_ETH_SUPPLY_RATES: Record<number, number> = {
   2020: 0.005,  // 0.5% - SOURCED: Aavescan normal utilization baseline
   2021: 0.020,  // 2.0% - SOURCED: BIS/arXiv ETH borrow 2.5-5%, supply ~40-60% of that
-  2022: 0.010,  // 1.0% - SOURCED: Feb 0.01%, June spike 3%, average ~1%
+  2022: 0.015,  // 1.5% - SOURCED: Feb 0.01%, June spike 3%, simple average ~1.5%
   2023: 0.010,  // 1.0% - SOURCED: Bear market, between 2022 (1%) and 2024 (1.3%)
   2024: 0.013,  // 1.3% - SOURCED: Aavescan current data
   2025: 0.015,  // 1.5% - SOURCED: Current 1.2-2.0% (Aavescan Dec 2025)

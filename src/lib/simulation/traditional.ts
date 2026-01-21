@@ -216,7 +216,10 @@ export function simulateTraditionalPosition(
   const totalValue = liquidated ? 0 : (alpEquity + borrowedFundsBalance)
 
   // Returns based on Total Value change
-  const totalReturns = liquidated ? -initialCollateralValue : (totalValue - initialCollateralValue)
+  // Liquidation penalty: 5% bonus to liquidators (based on Aave liquidation bonus for ETH/stablecoins)
+  // Source: https://docs.aave.com/faq/liquidations
+  const liquidationPenalty = PROTOCOL_CONFIG.liquidationBonus // 5%
+  const totalReturns = liquidated ? -(initialCollateralValue * (1 + liquidationPenalty)) : (totalValue - initialCollateralValue)
 
   // Determine status
   let status: 'healthy' | 'warning' | 'liquidated' = 'healthy'

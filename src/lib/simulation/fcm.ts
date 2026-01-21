@@ -472,7 +472,10 @@ export function simulateFCMPosition(
   // Returns based on Total Value change (includes FYV gains)
   // Compare against initialCollateralValue (user's deposit), not initialEquity
   // This ensures totalReturns = 0 at day 0 when totalValue = initialDeposit
-  const totalReturns = liquidated ? -initialCollateralValue : (totalValue - initialCollateralValue)
+  // Liquidation penalty: 5% bonus to liquidators (based on Aave liquidation bonus for ETH/stablecoins)
+  // Source: https://docs.aave.com/faq/liquidations
+  const liquidationPenalty = PROTOCOL_CONFIG.liquidationBonus // 5%
+  const totalReturns = liquidated ? -(initialCollateralValue * (1 + liquidationPenalty)) : (totalValue - initialCollateralValue)
 
   // Determine status based on health factor vs base target
   let status: 'healthy' | 'warning' | 'liquidated' = 'healthy'
